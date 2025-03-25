@@ -18,7 +18,8 @@ const GameBoard = ({
   initializeGame,
   characters,
   setGamePhase,
-  playerNames = []
+  playerNames = [],
+  matchedBy = {} // Add this prop to track which player matched each card
 }) => {
   // State to track container size
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -78,6 +79,15 @@ const GameBoard = ({
     return playerNames[currentPlayer] || `Player ${currentPlayer + 1}`;
   };
 
+  // Get player name who matched a card
+  const getPlayerNameWhoMatched = (cardId) => {
+    if (matchedBy[cardId] !== undefined) {
+      const playerIndex = matchedBy[cardId];
+      return playerNames[playerIndex] || `Player ${playerIndex + 1}`;
+    }
+    return null;
+  };
+
   return (
     <div 
       className="flex flex-col items-center w-full max-h-screen p-2 sm:p-3 bg-black/40 rounded-lg backdrop-blur-sm shadow-lg overflow-hidden" 
@@ -128,17 +138,25 @@ const GameBoard = ({
           transformOrigin: 'center center',
           transition: 'transform 0.3s ease'
         }}>
-          {cards.map((card, index) => (
-            <GameCard
-              key={card.uniqueId}
-              card={card}
-              index={index}
-              isFlipped={flippedIndices.includes(index)}
-              isMatched={matchedPairs.includes(card.id)}
-              handleCardClick={() => handleCardClick(index)}
-              styles={styles}
-            />
-          ))}
+          {cards.map((card, index) => {
+            // Create enhanced card with matchedBy property
+            const enhancedCard = {
+              ...card,
+              matchedBy: getPlayerNameWhoMatched(card.id)
+            };
+            
+            return (
+              <GameCard
+                key={card.uniqueId}
+                card={enhancedCard}
+                index={index}
+                isFlipped={flippedIndices.includes(index)}
+                isMatched={matchedPairs.includes(card.id)}
+                handleCardClick={() => handleCardClick(index)}
+                styles={styles}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

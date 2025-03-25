@@ -23,6 +23,7 @@ const App = () => {
   const [characters, setCharacters] = useState([]);
   const [flippedIndices, setFlippedIndices] = useState([]);
   const [matchedPairs, setMatchedPairs] = useState([]);
+  const [matchedBy, setMatchedBy] = useState({}); // Track which player matched which card
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [playerScores, setPlayerScores] = useState([]);
   const [playerMoves, setPlayerMoves] = useState([]);
@@ -172,6 +173,7 @@ const styles = useCallback(() => {
     setGamePhase("shuffling");
     setFlippedIndices([]);
     setMatchedPairs([]);
+    setMatchedBy({}); // Reset matched pairs tracking
     setMoves(0);
 
     // Select characters based on difficulty
@@ -254,7 +256,14 @@ const styles = useCallback(() => {
 
         if (cards[firstIndex].id === cards[secondIndex].id) {
           // Match found
-          setMatchedPairs([...matchedPairs, cards[firstIndex].id]);
+          const cardId = cards[firstIndex].id;
+          setMatchedPairs([...matchedPairs, cardId]);
+          
+          // Record which player matched this card
+          setMatchedBy(prev => ({
+            ...prev,
+            [cardId]: currentPlayer
+          }));
 
           // Update player score for multiplayer
           if (playerCount > 1) {
@@ -384,6 +393,7 @@ const styles = useCallback(() => {
               cards={cards}
               flippedIndices={flippedIndices}
               matchedPairs={matchedPairs}
+              matchedBy={matchedBy} // Pass the matchedBy object to GameBoard
               handleCardClick={handleCardClick}
               styles={styles()}
               difficulty={difficulty}
