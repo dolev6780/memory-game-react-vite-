@@ -11,7 +11,6 @@ const GameHeader = ({
   currentPlayer,
   initializeGame,
   setGamePhase,
-  styles,
   playerNames = []
 }) => {
   // Create a restart handler

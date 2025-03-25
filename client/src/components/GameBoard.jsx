@@ -108,7 +108,7 @@ const GameBoard = ({
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="fixed top-1/4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-orange-600 to-orange-500 text-white px-3 py-1 rounded-full shadow-lg z-20 text-xs border-2 border-yellow-300"
+            className="fixed bottom-4 right-0 transform -translate-x-1/2 bg-gradient-to-r from-orange-600 to-orange-500 text-white px-3 py-1 rounded-full shadow-lg z-20 text-xs border-2 border-yellow-300"
           >
             <div className="font-bold">{getCurrentPlayerName()}'s Turn</div>
           </motion.div>
