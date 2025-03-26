@@ -1,98 +1,142 @@
 import React from "react";
 import { motion } from "framer-motion";
-const IntroScreen = ({ difficulty, handleDifficultySelect }) => {
+import {
+  dragonballBackgroundImage,
+  pokemonBackgroundImage,
+} from "../constants";
+
+const IntroScreen = ({
+  difficulty,
+  gameTheme,
+  handleThemeSelect,
+  handleDifficultySelect,
+  gameTitle,
+}) => {
+  // Define theme-specific styles
+  const themeStyles = {
+    dragonball: {
+      container: "bg-orange-950/60", // Orange-tinted glass container
+      title: "text-red-500",         // Red title
+      subTitle: "text-orange-400",   // Orange subtitle
+      button: "from-red-600 to-orange-500", // Button gradient
+      selected: "border-red-500"     // Selected item border
+    },
+    pokemon: {
+      container: "bg-yellow-950/60", // Yellow-tinted glass container
+      title: "text-blue-500",        // Blue title
+      subTitle: "text-yellow-400",   // Yellow subtitle
+      button: "from-blue-600 to-yellow-500", // Button gradient
+      selected: "border-blue-500"    // Selected item border
+    }
+  };
+
+  // Get current theme styles
+  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+
   return (
-    <div className="text-center max-w-md mx-auto p-4 bg-orange-500/20 rounded-xl backdrop-blur-lg shadow-2xl border border-white/20 relative overflow-hidden">
-      <div className="absolute -inset-full top-0 left-0 h-64 w-96 bg-white/10 rotate-45 transform translate-x-2/3 translate-y-1/3 z-0 opacity-50"></div>
-      <div className="absolute -inset-full top-0 left-0 h-32 w-64 bg-white/5 rotate-12 transform -translate-x-1/3 -translate-y-2/3 z-0"></div>
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="relative z-10"
-      >
-        <div className="mb-6">
-          <motion.h1 
-            className="text-3xl sm:text-4xl font-bold text-red-600 mb-3"
-            animate={{ 
-              textShadow: [
-                "0 0 8px rgba(255,0,0,0.5)", 
-                "0 0 16px rgba(255,0,0,0.8)", 
-                "0 0 8px rgba(255,0,0,0.5)"
-              ] 
-            }}
-            transition={{ duration: 2, repeat: Infinity }}
+    <div className={`${currentTheme.container} text-white p-4 sm:p-6 rounded-lg shadow-lg backdrop-blur-sm max-w-2xl mx-auto`}>
+      <div className="text-center mb-6">
+        <h1 className={`text-3xl sm:text-4xl font-bold mb-3 ${currentTheme.title}`}>
+          {gameTitle} Memory Game
+        </h1>
+        <p className="text-lg opacity-90">
+          Test your memory by matching pairs of cards!
+        </p>
+      </div>
+
+      {/* Theme Selection */}
+      <div className="mb-8">
+        <h2 className={`text-xl font-semibold mb-3 text-center ${currentTheme.subTitle}`}>
+          Choose Your Theme
+        </h2>
+
+        <div className="grid grid-cols-2 gap-4 sm:gap-6">
+          <motion.div
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleThemeSelect("dragonball", "Dragon Ball")}
+            className={`cursor-pointer rounded-lg overflow-hidden border-4 ${
+              gameTheme === "dragonball"
+                ? themeStyles.dragonball.selected
+                : "border-transparent"
+            } transition-all duration-200`}
           >
-            Dragon Ball Memory Game
-          </motion.h1>
-          <p className="text-white text-sm sm:text-base">Match pairs of Dragon Ball characters and test your memory!</p>
-        </div>
-
-        <motion.div 
-          className="bg-yellow-900/30 rounded-xl p-4 mb-6 border border-yellow-500/50 backdrop-blur-sm"
-          whileHover={{ scale: 1.02 }}
-          transition={{ type: "spring", stiffness: 400, damping: 10 }}
-        >
-          <h2 className="text-xl font-bold text-yellow-300 mb-2">
-            How to Play
-          </h2>
-          <ul className="text-left text-gray-100 mb-2 text-sm sm:text-base">
-            <li className="flex items-center mb-1">
-              <span className="mr-2 text-yellow-500">•</span>
-              Click cards to flip them over
-            </li>
-            <li className="flex items-center mb-1">
-              <span className="mr-2 text-yellow-500">•</span>
-              Find matching pairs of characters
-            </li>
-            <li className="flex items-center mb-1">
-              <span className="mr-2 text-yellow-500">•</span>
-              Complete the game with as few moves as possible
-            </li>
-            <li className="flex items-center">
-              <span className="mr-2 text-yellow-500">•</span>
-              Challenge friends in multiplayer mode
-            </li>
-          </ul>
-        </motion.div>
-
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-yellow-300 mb-4">
-            Select Difficulty
-          </h2>
-          <div className="flex flex-col sm:flex-row justify-center gap-3">
-            {[
-              { level: "easy", label: "Easy", description: "6 pairs" },
-              { level: "medium", label: "Medium", description: "10 pairs" },
-              { level: "hard", label: "Hard", description: "15 pairs" }
-            ].map((option) => (
-              <motion.button
-                key={option.level}
-                onClick={() => handleDifficultySelect(option.level)}
-                className={`py-3 px-5 rounded-lg font-bold transition-all relative overflow-hidden hover:text-red-600 text-gray-100
-                       hover:bg-gradient-to-br hover:from-orange-300/80 hover:to-orange-500/80 hover:backdrop-blur-sm
-                            bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm cursor-pointer
-                  `}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="relative z-10 flex flex-col">
-                  <span>{option.label}</span>
-                  <span className="text-xs mt-1 opacity-80">{option.description}</span>
+            <div className="relative h-32 sm:h-40">
+              <img src={dragonballBackgroundImage} alt="" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/70">
+                <div className="absolute bottom-0 w-full p-2 text-center">
+                  <h3 className="font-bold text-white">Dragon Ball</h3>
                 </div>
-              </motion.button>
-            ))}
-          </div>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleThemeSelect("pokemon", "Pokemon")}
+            className={`cursor-pointer rounded-lg overflow-hidden border-4 ${
+              gameTheme === "pokemon"
+                ? themeStyles.pokemon.selected
+                : "border-transparent"
+            } transition-all duration-200`}
+          >
+            <div className="relative h-32 sm:h-40">
+              <img src={pokemonBackgroundImage} alt="" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/70">
+                <div className="absolute bottom-0 w-full p-2 text-center">
+                  <h3 className="font-bold text-white">Pokémon</h3>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
-        
-        <motion.div
-          className="text-gray-300 text-xs mt-8"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 1 }}
+      </div>
+
+      {/* Difficulty Selection */}
+      <div>
+        <h2 className={`text-xl font-semibold mb-3 text-center ${currentTheme.subTitle}`}>
+          Select Difficulty
+        </h2>
+
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          {["easy", "medium", "hard"].map((level) => (
+            <motion.button
+              key={level}
+              onClick={() => handleDifficultySelect(level)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              className={`py-2 sm:py-3 px-2 sm:px-4 rounded-lg text-sm sm:text-base font-semibold uppercase transition-colors duration-200 ${
+                difficulty === level
+                  ? gameTheme === "dragonball" ? "bg-red-500 text-white" : "bg-blue-500 text-white"
+                  : "bg-gray-700/70 text-gray-200 hover:bg-gray-700"
+              }`}
+            >
+              {level}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {/* Game Start */}
+      <div className="mt-8 text-center">
+        <p className="text-sm opacity-80 mb-2">
+          {difficulty === "easy"
+            ? "6 pairs of cards (Easy)"
+            : difficulty === "medium"
+            ? "10 pairs of cards (Medium)"
+            : "15 pairs of cards (Hard)"}
+        </p>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => handleDifficultySelect(difficulty)}
+          className={`bg-gradient-to-r ${currentTheme.button} text-white py-3 px-6 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all duration-200`}
         >
-          Select a difficulty level to begin
-        </motion.div>
-      </motion.div>
+          Start Game
+        </motion.button>
+      </div>
     </div>
   );
 };

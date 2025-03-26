@@ -1,7 +1,37 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-const GameCard = ({ card, index, isFlipped, isMatched, handleCardClick, styles, currentPlayer }) => {
+const GameCard = ({ 
+  card, 
+  index, 
+  isFlipped, 
+  isMatched, 
+  handleCardClick, 
+  styles, 
+  currentPlayer,
+  gameTheme = "dragonball" // Add game theme prop with default
+}) => {
+  // Define theme-specific styles
+  const themeStyles = {
+    dragonball: {
+      cardGradient: "linear-gradient(135deg, #ff9800, #e65100)",
+      cardBorder: "2px solid #e65100",
+      circleBg: "bg-orange-600",
+      matchedBadgeBg: "bg-orange-500 bg-opacity-70",
+      initials: "DB"
+    },
+    pokemon: {
+      cardGradient: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+      cardBorder: "2px solid #1e40af",
+      circleBg: "bg-yellow-500",
+      matchedBadgeBg: "bg-blue-600 bg-opacity-70",
+      initials: "PK"
+    }
+  };
+
+  // Get current theme styles
+  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+
   // Card styling with 3D flip effect
   const cardInnerStyles = {
     width: "100%",
@@ -43,12 +73,12 @@ const GameCard = ({ card, index, isFlipped, isMatched, handleCardClick, styles, 
         <div
           style={{
             ...cardFaceStyles,
-            background: "linear-gradient(135deg, #ff9800, #e65100)",
-            border: "2px solid #e65100",
+            background: currentTheme.cardGradient,
+            border: currentTheme.cardBorder,
           }}
         >
           <div
-            className="rounded-full bg-orange-600 flex items-center justify-center font-bold text-white shadow-inner"
+            className={`rounded-full ${currentTheme.circleBg} flex items-center justify-center font-bold text-white shadow-inner`}
             style={{
               width: "50%",
               height: "50%",
@@ -56,7 +86,7 @@ const GameCard = ({ card, index, isFlipped, isMatched, handleCardClick, styles, 
               boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3)"
             }}
           >
-            DB
+            {currentTheme.initials}
           </div>
         </div>
         
@@ -90,13 +120,13 @@ const GameCard = ({ card, index, isFlipped, isMatched, handleCardClick, styles, 
             {isMatched && (
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div className="bg-black bg-opacity-30 text-white rounded-full p-1 shadow-lg mb-2">
-               
+                  {/* Optional checkmark or icon could go here */}
                 </div>
                 <div 
-                  className="bg-orange-500 bg-opacity-70 text-white px-2 py-1 rounded-md shadow-lg text-center"
+                  className={`${currentTheme.matchedBadgeBg} text-white px-2 py-1 rounded-md shadow-lg text-center`}
                   style={{ fontSize: styles.fontSize.name }}
                 >
-                 {card.matchedBy || "Player"}
+                  {card.matchedBy || "Player"}
                 </div>
               </div>
             )}

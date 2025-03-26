@@ -6,6 +6,7 @@ import one from '../assets/one.png';
 import two from '../assets/two.png';
 import three from '../assets/three.png';
 import four from '../assets/four.png';
+import pokeball from '../assets/pokeball.png';
 
 const PlayerSelectScreen = ({ 
   difficulty, 
@@ -14,8 +15,36 @@ const PlayerSelectScreen = ({
   setGamePhase, 
   handleStartGame,
   playerNames = [],
-  setPlayerNames
+  setPlayerNames,
+  gameTheme = "dragonball" // Add game theme prop with default
 }) => {
+  // Define theme-specific styles
+  const themeStyles = {
+    dragonball: {
+      container: "bg-orange-500/20 border-white/20",
+      title: "text-red-400",
+      subtitle: "text-yellow-400",
+      playerBox: "bg-yellow-900/30 border-yellow-500/50",
+      buttonGradient: "from-orange-500 to-orange-600",
+      buttonGlow: "rgba(255, 160, 0, 0.5)",
+      selectedCount: "bg-red-500",
+      inputFocus: "focus:ring-red-400 focus:border-red-400",
+    },
+    pokemon: {
+      container: "bg-blue-500/20 border-white/20",
+      title: "text-blue-400",
+      subtitle: "text-yellow-400",
+      playerBox: "bg-blue-900/30 border-blue-500/50",
+      buttonGradient: "from-blue-500 to-yellow-500",
+      buttonGlow: "rgba(96, 165, 250, 0.5)",
+      selectedCount: "bg-blue-500",
+      inputFocus: "focus:ring-blue-400 focus:border-blue-400",
+    }
+  };
+
+  // Get current theme styles
+  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+
   // Update player names when player count changes
   useEffect(() => {
     // Initialize with default names when player count changes
@@ -50,7 +79,7 @@ const PlayerSelectScreen = ({
   };
 
   return (
-    <div className="text-center max-w-md mx-auto p-4 bg-orange-500/20 rounded-xl backdrop-blur-lg shadow-2xl border border-white/20 relative overflow-hidden">
+    <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden`}>
       <div className="absolute -inset-full top-0 left-0 h-64 w-96 bg-white/10 rotate-45 transform translate-x-2/3 translate-y-1/3 z-0 opacity-50"></div>
       <div className="absolute -inset-full top-0 left-0 h-32 w-64 bg-white/5 rotate-12 transform -translate-x-1/3 -translate-y-2/3 z-0"></div>
       <motion.div
@@ -65,7 +94,7 @@ const PlayerSelectScreen = ({
           animate="visible"
         >
           <motion.h1 
-            className="text-2xl font-bold text-yellow-400 mb-2"
+            className={`text-2xl font-bold ${currentTheme.title} mb-2`}
             variants={itemVariants}
           >
             {getDifficultyName(difficulty)}
@@ -85,32 +114,34 @@ const PlayerSelectScreen = ({
           animate="visible"
         >
           <motion.h2 
-            className="text-xl font-bold text-yellow-300 mb-4"
+            className={`text-xl font-bold ${currentTheme.subtitle} mb-4`}
             variants={itemVariants}
           >
             Number of Players
           </motion.h2>
           <div className="flex justify-center gap-4">
-            {[one, two, three, four].map((playerImage, i) => (
+            {[1, 2, 3, 4].map((count, i) => (
               <motion.button
                 key={i}
-                onClick={() => handlePlayerCountSelect(i+1)}
+                onClick={() => handlePlayerCountSelect(count)}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 variants={itemVariants}
                 className="relative cursor-pointer"
               >
                 <img 
-                  src={playerImage} 
-                  alt={`${i+1} player${i > 0 ? 's' : ''}`}
+                  src={gameTheme === "dragonball" ? 
+                    [one, two, three, four][i] : 
+                    pokeball} 
+                  alt={`${count} player${count > 1 ? 's' : ''}`}
                   className={`w-16 h-16 rounded-full transition-all duration-200
                     opacity-70 hover:opacity-100`}
                 />
                 <div className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 text-xs px-2 py-0.5 rounded-full
-                  ${i+1 === playerCount 
-                    ? "bg-yellow-500 text-black font-bold" 
+                  ${count === playerCount 
+                    ? currentTheme.selectedCount + " text-white font-bold" 
                     : "bg-gray-800 text-gray-300"}`}>
-                  {i+1}
+                  {count}
                 </div>
               </motion.button>
             ))}
@@ -119,12 +150,12 @@ const PlayerSelectScreen = ({
 
         {playerCount > 0 && (
           <motion.div
-            className="bg-yellow-900/30 rounded-xl p-3 mb-6 border border-yellow-500/50 backdrop-blur-sm"
+            className={`${currentTheme.playerBox} rounded-xl p-3 mb-6 border backdrop-blur-sm`}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             transition={{ duration: 0.3 }}
           >
-            <h2 className="text-lg font-bold text-yellow-300 mb-2">Players</h2>
+            <h2 className={`text-lg font-bold ${currentTheme.subtitle} mb-2`}>Players</h2>
             <div className="grid grid-cols-2 gap-2">
               {Array.from({ length: playerCount }).map((_, index) => (
                 <motion.div
@@ -138,7 +169,7 @@ const PlayerSelectScreen = ({
                     type="text"
                     value={playerNames[index] || `Player ${index + 1}`}
                     onChange={(e) => handleNameChange(index, e.target.value)}
-                    className="w-full bg-gray-700/70 border border-gray-600 rounded px-2 py-1 text-white text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400"
+                    className={`w-full bg-gray-700/70 border border-gray-600 rounded px-2 py-1 text-white text-sm focus:outline-none ${currentTheme.inputFocus}`}
                     placeholder={`Player ${index + 1}`}
                     maxLength={12}
                   />
@@ -159,11 +190,15 @@ const PlayerSelectScreen = ({
           </motion.button>
           <motion.button
             onClick={() => handleStartGame(playerNames)}
-            className="px-6 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-lg shadow-md"
-            whileHover={{ scale: 1.05, boxShadow: "0 0 15px rgba(255, 160, 0, 0.5)" }}
+            className={`px-6 py-2 bg-gradient-to-r ${currentTheme.buttonGradient} text-white font-medium rounded-lg shadow-md`}
+            whileHover={{ scale: 1.05, boxShadow: `0 0 15px ${currentTheme.buttonGlow}` }}
             whileTap={{ scale: 0.95 }}
             animate={{
-              boxShadow: ["0 0 0 rgba(255, 160, 0, 0)", "0 0 10px rgba(255, 160, 0, 0.5)", "0 0 0 rgba(255, 160, 0, 0)"],
+              boxShadow: [
+                `0 0 0 rgba(0, 0, 0, 0)`, 
+                `0 0 10px ${currentTheme.buttonGlow}`, 
+                `0 0 0 rgba(0, 0, 0, 0)`
+              ],
             }}
             transition={{ duration: 2, repeat: Infinity }}
           >

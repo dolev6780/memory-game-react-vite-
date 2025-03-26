@@ -1,7 +1,34 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-const ShufflingScreen = ({ characters, shuffling, styles }) => {
+const ShufflingScreen = ({ characters, shuffling, styles, gameTheme = "dragonball" }) => {
+  // Define theme-specific styles
+  const themeStyles = {
+    dragonball: {
+      container: "bg-black/80 border-orange-900/50",
+      title: "text-yellow-400",
+      subtitle: "text-orange-300",
+      cardGradient: "linear-gradient(135deg, #ff9800, #e65100)",
+      cardBorder: "2px solid #e65100",
+      circleBg: "bg-orange-600",
+      textColor: "text-white",
+      initials: "DB"
+    },
+    pokemon: {
+      container: "bg-blue-950/80 border-blue-800/50",
+      title: "text-yellow-300",
+      subtitle: "text-blue-300",
+      cardGradient: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+      cardBorder: "2px solid #1e40af",
+      circleBg: "bg-yellow-500",
+      textColor: "text-blue-900",
+      initials: "PK"
+    }
+  };
+
+  // Get current theme styles
+  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+
   // Card animation variants
   const cardVariants = {
     shuffle: (index) => ({
@@ -25,9 +52,9 @@ const ShufflingScreen = ({ characters, shuffling, styles }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 bg-black bg-opacity-80 rounded-xl backdrop-blur-md shadow-2xl border border-gray-800">
+    <div className={`flex flex-col items-center justify-center p-4 ${currentTheme.container} rounded-xl backdrop-blur-md shadow-2xl border`}>
       <motion.h2
-        className="text-xl sm:text-2xl font-bold text-yellow-400 mb-6"
+        className={`text-xl sm:text-2xl font-bold ${currentTheme.title} mb-6`}
         animate={{
           scale: [1, 1.05, 1],
           opacity: [0.8, 1, 0.8],
@@ -55,9 +82,8 @@ const ShufflingScreen = ({ characters, shuffling, styles }) => {
                 style={{
                   width: "100%",
                   height: "100%",
-                  backgroundColor: "#ff9800",
-                  background: "linear-gradient(135deg, #ff9800, #e65100)",
-                  border: "2px solid #e65100",
+                  background: currentTheme.cardGradient,
+                  border: currentTheme.cardBorder,
                   borderRadius: "8px",
                   display: "flex",
                   justifyContent: "center",
@@ -66,7 +92,7 @@ const ShufflingScreen = ({ characters, shuffling, styles }) => {
                 }}
               >
                 <div
-                  className="rounded-full bg-orange-600 flex items-center justify-center text-white font-bold shadow-inner"
+                  className={`rounded-full ${currentTheme.circleBg} flex items-center justify-center ${currentTheme.textColor} font-bold shadow-inner`}
                   style={{
                     width: "40%",
                     height: "40%",
@@ -74,7 +100,7 @@ const ShufflingScreen = ({ characters, shuffling, styles }) => {
                     boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3)"
                   }}
                 >
-                  DB
+                  {currentTheme.initials}
                 </div>
               </div>
             </motion.div>
@@ -83,12 +109,12 @@ const ShufflingScreen = ({ characters, shuffling, styles }) => {
       </div>
 
       <motion.div
-        className="mt-6 text-sm text-gray-400"
+        className={`mt-6 text-sm ${currentTheme.subtitle}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
       >
-        Preparing an exciting memory challenge...
+        Preparing an exciting {gameTheme === "dragonball" ? "Dragon Ball" : "Pokémon"} memory challenge...
       </motion.div>
     </div>
   );

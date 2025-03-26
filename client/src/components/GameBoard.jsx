@@ -19,8 +19,26 @@ const GameBoard = ({
   characters,
   setGamePhase,
   playerNames = [],
-  matchedBy = {} // Add this prop to track which player matched each card
+  matchedBy = {}, // Add this prop to track which player matched each card
+  gameTheme = "dragonball" // Add game theme prop with default
 }) => {
+  // Define theme-specific styles
+  const themeStyles = {
+    dragonball: {
+      container: "bg-black/40",
+      turnNotificationGradient: "from-orange-600 to-orange-500",
+      turnNotificationBorder: "border-yellow-300",
+    },
+    pokemon: {
+      container: "bg-blue-900/40",
+      turnNotificationGradient: "from-blue-600 to-yellow-500",
+      turnNotificationBorder: "border-blue-300",
+    }
+  };
+
+  // Get current theme styles
+  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+  
   // State to track container size
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
@@ -90,7 +108,7 @@ const GameBoard = ({
 
   return (
     <div 
-      className="flex flex-col items-center w-full max-h-screen p-2 sm:p-3 bg-black/40 rounded-lg backdrop-blur-sm shadow-lg overflow-hidden" 
+      className={`flex flex-col items-center w-full max-h-screen p-2 sm:p-3 ${currentTheme.container} rounded-lg backdrop-blur-sm shadow-lg overflow-hidden`}
       ref={containerRef}
       style={{ height: `calc(100vh - 20px)` }} // Limit to viewport height minus padding
     >
@@ -108,6 +126,7 @@ const GameBoard = ({
           playerNames={playerNames}
           styles={styles}
           setGamePhase={setGamePhase}
+          gameTheme={gameTheme} // Pass the theme to GameHeader
         />
       </div>
       
@@ -118,7 +137,7 @@ const GameBoard = ({
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="fixed bottom-4 right-0 transform -translate-x-1/2 bg-gradient-to-r from-orange-600 to-orange-500 text-white px-3 py-1 rounded-full shadow-lg z-20 text-xs border-2 border-yellow-300"
+            className={`fixed bottom-4 right-0 transform -translate-x-1/2 bg-gradient-to-r ${currentTheme.turnNotificationGradient} text-white px-3 py-1 rounded-full shadow-lg z-20 text-xs border-2 ${currentTheme.turnNotificationBorder}`}
           >
             <div className="font-bold">{getCurrentPlayerName()}'s Turn</div>
           </motion.div>
@@ -154,6 +173,7 @@ const GameBoard = ({
                 isMatched={matchedPairs.includes(card.id)}
                 handleCardClick={() => handleCardClick(index)}
                 styles={styles}
+                gameTheme={gameTheme} // Pass the theme to GameCard
               />
             );
           })}

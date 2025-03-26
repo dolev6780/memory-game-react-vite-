@@ -5,7 +5,7 @@ import IntroScreen from "./components/IntroScreen";
 import PlayerSelectScreen from "./components/PlayerSelectScreen";
 import ShufflingScreen from "./components/ShufflingScreen";
 import GameOverScreen from "./components/GameOverScreen";
-import { allCharacters, backgroundImage } from "./constants";
+import { dragonballCharacters, dragonballBackgroundImage, pokemonBackgroundImage, pokemonCharacters } from "./constants";
 import { v4 as uuidv4 } from "uuid"; // You'll need to install this package
 
 // Difficulty level configurations
@@ -18,6 +18,8 @@ const DIFFICULTY_CONFIG = {
 const App = () => {
   const [gamePhase, setGamePhase] = useState("intro");
   const [difficulty, setDifficulty] = useState("medium");
+  const [gameTheme, setGameTheme] = useState("dragonball"); // Add game theme state
+  const [gameTitle, setGameTitle] = useState("Dragon Ball"); // Add game theme state
   const [playerCount, setPlayerCount] = useState(1);
   const [cards, setCards] = useState([]);
   const [characters, setCharacters] = useState([]);
@@ -35,6 +37,17 @@ const App = () => {
     height: window.innerHeight,
   });
   const [playerNames, setPlayerNames] = useState([]);
+
+  // Function to handle theme selection
+  const handleThemeSelect = (theme, title) => {
+    setGameTheme(theme);
+    setGameTitle(title)
+  };
+
+  // Function to get the current character set based on theme
+  const getCurrentCharacters = useCallback(() => {
+    return gameTheme === "dragonball" ? dragonballCharacters : pokemonCharacters;
+  }, [gameTheme]);
 
   // Handle window resize for responsive design
   useEffect(() => {
@@ -176,9 +189,12 @@ const styles = useCallback(() => {
     setMatchedBy({}); // Reset matched pairs tracking
     setMoves(0);
 
+    // Get characters based on the current theme
+    const characterSet = getCurrentCharacters();
+
     // Select characters based on difficulty
     const config = DIFFICULTY_CONFIG[difficulty];
-    const shuffledCharacters = [...allCharacters].sort(
+    const shuffledCharacters = [...characterSet].sort(
       () => Math.random() - 0.5
     );
     const selectedCharacters = shuffledCharacters.slice(0, config.pairs);
@@ -204,7 +220,7 @@ const styles = useCallback(() => {
       setShuffling(false);
       setGamePhase("game_board");
     }, 1500);
-  }, [difficulty, playerCount, initializePlayers]);
+  }, [difficulty, playerCount, initializePlayers, getCurrentCharacters]);
 
   // Start game with player names
   const handleStartGame = (names) => {
@@ -323,9 +339,10 @@ const styles = useCallback(() => {
   useEffect(() => {
     // This is just to initialize state, actual game starts after player interaction
     const config = DIFFICULTY_CONFIG[difficulty];
-    const initialCharacters = allCharacters.slice(0, config.pairs);
+    const characterSet = getCurrentCharacters();
+    const initialCharacters = characterSet.slice(0, config.pairs);
     setCharacters(initialCharacters);
-  }, [difficulty]);
+  }, [difficulty, getCurrentCharacters]);
 
   const phaseController = () => {
     switch (gamePhase) {
@@ -340,6 +357,9 @@ const styles = useCallback(() => {
           >
             <IntroScreen
               difficulty={difficulty}
+              gameTheme={gameTheme}
+              gameTitle={gameTitle}
+              handleThemeSelect={handleThemeSelect}
               handleDifficultySelect={handleDifficultySelect}
             />
           </motion.div>
@@ -355,6 +375,7 @@ const styles = useCallback(() => {
           >
             <PlayerSelectScreen
               difficulty={difficulty}
+              gameTheme={gameTheme}
               playerCount={playerCount}
               handlePlayerCountSelect={handlePlayerCountSelect}
               setGamePhase={setGamePhase}
@@ -377,6 +398,7 @@ const styles = useCallback(() => {
               characters={characters}
               shuffling={shuffling}
               styles={styles()}
+              gameTheme={gameTheme}
             />
           </motion.div>
         );
@@ -406,6 +428,7 @@ const styles = useCallback(() => {
               characters={characters}
               setGamePhase={setGamePhase}
               playerNames={playerNames}
+              gameTheme={gameTheme}
             />
           </motion.div>
         );
@@ -427,6 +450,7 @@ const styles = useCallback(() => {
               initializeGame={initializeGame}
               setGamePhase={setGamePhase}
               playerNames={playerNames}
+              gameTheme={gameTheme}
             />
           </motion.div>
         );
@@ -435,9 +459,12 @@ const styles = useCallback(() => {
     }
   };
 
+  // Get the correct background image based on theme
+  const backgroundImage = gameTheme === "dragonball" ? dragonballBackgroundImage : pokemonBackgroundImage;
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-2 sm:p-4 bg-gray-900 relative overflow-hidden">
-      {/* Background image */}
+      {/* Background image - now dynamic based on theme */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 z-0"
         style={{ backgroundImage: `url(${backgroundImage})` }}

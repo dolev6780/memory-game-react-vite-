@@ -9,8 +9,42 @@ const GameOverScreen = ({
   playerScores,
   initializeGame,
   setGamePhase,
-  playerNames = []
+  playerNames = [],
+  gameTheme = "dragonball" // Add game theme prop with default
 }) => {
+  // Define theme-specific styles
+  const themeStyles = {
+    dragonball: {
+      container: "bg-orange-500/20 border-white/20",
+      title: "text-yellow-400",
+      subtitle: "text-gray-200",
+      sectionTitle: "text-yellow-300",
+      resultsBg: "bg-gray-800/60",
+      winnerGradient: "from-orange-600 to-orange-500",
+      winnerTile: "bg-yellow-900/50 text-yellow-200",
+      loserTile: "bg-gray-700/50 text-gray-300",
+      buttonGradient: "from-orange-500 to-orange-600",
+      buttonGlow: "rgba(255, 160, 0, 0.5)",
+      titleAnimation: ["0 0 8px rgba(255,0,0,0.5)", "0 0 16px rgba(255,0,0,0.8)", "0 0 8px rgba(255,0,0,0.5)"]
+    },
+    pokemon: {
+      container: "bg-blue-500/20 border-white/20",
+      title: "text-blue-400",
+      subtitle: "text-gray-200",
+      sectionTitle: "text-yellow-300",
+      resultsBg: "bg-blue-900/60",
+      winnerGradient: "from-blue-600 to-yellow-500",
+      winnerTile: "bg-blue-900/50 text-yellow-200",
+      loserTile: "bg-gray-700/50 text-gray-300",
+      buttonGradient: "from-blue-500 to-yellow-500",
+      buttonGlow: "rgba(96, 165, 250, 0.5)",
+      titleAnimation: ["0 0 8px rgba(0,0,255,0.5)", "0 0 16px rgba(0,0,255,0.8)", "0 0 8px rgba(0,0,255,0.5)"]
+    }
+  };
+
+  // Get current theme styles
+  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+
   // Get the winner(s) for multiplayer
   const getWinners = () => {
     if (playerCount <= 1) return [];
@@ -40,7 +74,7 @@ const GameOverScreen = ({
   };
 
   return (
-    <div className="text-center max-w-md mx-auto p-4 bg-orange-500/20 rounded-xl backdrop-blur-lg shadow-2xl border border-white/20 relative overflow-hidden">
+    <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden`}>
       <div className="absolute -inset-full top-0 left-0 h-64 w-96 bg-white/10 rotate-45 transform translate-x-2/3 translate-y-1/3 z-0 opacity-50"></div>
       <div className="absolute -inset-full top-0 left-0 h-32 w-64 bg-white/5 rotate-12 transform -translate-x-1/3 -translate-y-2/3 z-0"></div>
       
@@ -55,14 +89,10 @@ const GameOverScreen = ({
           variants={itemVariants}
         >
           <motion.h1 
-            className="text-3xl font-bold text-yellow-400 mb-2"
+            className={`text-3xl font-bold ${currentTheme.title} mb-2`}
             animate={{ 
               scale: [1, 1.05, 1],
-              textShadow: [
-                "0 0 8px rgba(255,0,0,0.5)", 
-                "0 0 16px rgba(255,0,0,0.8)", 
-                "0 0 8px rgba(255,0,0,0.5)"
-              ] 
+              textShadow: currentTheme.titleAnimation
             }}
             transition={{ duration: 2, repeat: Infinity }}
           >
@@ -70,7 +100,7 @@ const GameOverScreen = ({
           </motion.h1>
           
           <motion.div
-            className="text-gray-200 mb-1"
+            className={`${currentTheme.subtitle} mb-1`}
             variants={itemVariants}
           >
             {getDifficultyName(difficulty)} Mode
@@ -78,13 +108,13 @@ const GameOverScreen = ({
         </motion.div>
 
         <motion.div 
-          className="bg-gray-800/60 backdrop-blur-sm rounded-xl p-3 mb-6"
+          className={`${currentTheme.resultsBg} backdrop-blur-sm rounded-xl p-3 mb-6`}
           variants={itemVariants}
         >
           {playerCount <= 1 ? (
             // Single player results
             <div>
-              <h2 className="text-lg font-bold text-yellow-300 mb-2">Your Results</h2>
+              <h2 className={`text-lg font-bold ${currentTheme.sectionTitle} mb-2`}>Your Results</h2>
               <div className="text-white">
                 <p className="mb-1">{playerNames[0] || "Player 1"}</p>
                 <p className="text-gray-300 text-sm">Completed in {moves} moves</p>
@@ -93,7 +123,7 @@ const GameOverScreen = ({
           ) : (
             // Multiplayer results
             <div>
-              <h2 className="text-lg font-bold text-yellow-300 mb-2">
+              <h2 className={`text-lg font-bold ${currentTheme.sectionTitle} mb-2`}>
                 {winners.length > 1 ? "It's a tie!" : "Winner!"}
               </h2>
               
@@ -102,7 +132,7 @@ const GameOverScreen = ({
                 {winners.map((winner) => (
                   <motion.div
                     key={winner.id}
-                    className="px-3 py-2 bg-gradient-to-r from-orange-600 to-orange-500 rounded-lg text-white"
+                    className={`px-3 py-2 bg-gradient-to-r ${currentTheme.winnerGradient} rounded-lg text-white`}
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 10 }}
@@ -120,8 +150,8 @@ const GameOverScreen = ({
                     key={player.id}
                     className={`p-2 rounded-lg text-sm ${
                       winners.some(w => w.id === player.id)
-                        ? "bg-yellow-900/50 text-yellow-200"
-                        : "bg-gray-700/50 text-gray-300"
+                        ? currentTheme.winnerTile
+                        : currentTheme.loserTile
                     }`}
                   >
                     <div className="font-medium">{playerNames[index] || `Player ${player.id + 1}`}</div>
@@ -147,8 +177,8 @@ const GameOverScreen = ({
           </motion.button>
           <motion.button
             onClick={initializeGame}
-            className="px-6 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-lg shadow-md"
-            whileHover={{ scale: 1.05, boxShadow: "0 0 15px rgba(255, 160, 0, 0.5)" }}
+            className={`px-6 py-2 bg-gradient-to-r ${currentTheme.buttonGradient} text-white font-medium rounded-lg shadow-md`}
+            whileHover={{ scale: 1.05, boxShadow: `0 0 15px ${currentTheme.buttonGlow}` }}
             whileTap={{ scale: 0.95 }}
           >
             Play Again
