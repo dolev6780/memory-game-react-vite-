@@ -40,7 +40,7 @@ import garchomp from "./assets/pokemon/garchomp.png";
 import gengar from "./assets/pokemon/gengar.jpg";
 import greninja from "./assets/pokemon/greninja.png";
 import gyarados from "./assets/pokemon/gyarados.png";
-import jigglypuff from "./assets/pokemon/jigglypuff.png";
+import jigglypuff from "./assets/pokemon/Jigglypuff.png";
 import lucario from "./assets/pokemon/lucario.png";
 import mew from "./assets/pokemon/mew.png";
 import mewtwo from "./assets/pokemon/mewtwo.png";
