@@ -1,7 +1,10 @@
+// Add a useEffect in GameBoard.jsx to enforce theme consistency
+
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import GameHeader from "./GameHeader";
 import GameCard from "./GameCard";
+import socketService from "../services/socketService";
 
 const GameBoard = ({
   cards,
@@ -19,8 +22,10 @@ const GameBoard = ({
   characters,
   setGamePhase,
   playerNames = [],
-  matchedBy = {}, // Add this prop to track which player matched each card
-  gameTheme = "dragonball" // Add game theme prop with default
+  matchedBy = {}, 
+  gameTheme = "dragonball",
+  setGameTheme, // Add this prop
+  isOnline = false
 }) => {
   // Define theme-specific styles
   const themeStyles = {
@@ -45,6 +50,17 @@ const GameBoard = ({
   
   // Reference to the main container
   const containerRef = React.useRef(null);
+
+  // If this is an online game, ensure we're using the theme from socketService
+  useEffect(() => {
+    if (isOnline) {
+      const socketTheme = socketService.getGameTheme();
+      if (socketTheme && socketTheme !== gameTheme && setGameTheme) {
+        console.log(`GameBoard enforcing theme: ${gameTheme} -> ${socketTheme}`);
+        setGameTheme(socketTheme);
+      }
+    }
+  }, [isOnline, gameTheme, setGameTheme]);
   
   // Calculate the appropriate scale for the game board
   useEffect(() => {
@@ -119,30 +135,50 @@ const GameBoard = ({
           initializeGame={initializeGame}
           moves={moves}
           matchedPairs={matchedPairs}
-          characters={characters}
+          characters={characters || []}
           playerCount={playerCount}
           playerScores={playerScores}
           currentPlayer={currentPlayer}
           playerNames={playerNames}
           styles={styles}
           setGamePhase={setGamePhase}
-          gameTheme={gameTheme} // Pass the theme to GameHeader
+          gameTheme={gameTheme}
+          isOnline={isOnline}
         />
       </div>
       
+      {/* Theme indicator for debugging */}
+      {isOnline && (
+        <div className="absolute top-1 right-1 z-30">
+          <span className={`px-2 py-1 rounded-full text-xs text-white ${
+            gameTheme === 'dragonball' ? 'bg-orange-600' : 'bg-blue-600'
+          }`}>
+            {gameTheme === 'dragonball' ? 'DB Theme' : 'PK Theme'}
+          </span>
+        </div>
+      )}
+      
       {/* Player turn notification */}
       <AnimatePresence>
-        {showPlayerTurn && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className={`fixed bottom-4 right-0 transform -translate-x-1/2 bg-gradient-to-r ${currentTheme.turnNotificationGradient} text-white px-3 py-1 rounded-full shadow-lg z-20 text-xs border-2 ${currentTheme.turnNotificationBorder}`}
-          >
-            <div className="font-bold">{getCurrentPlayerName()}'s Turn</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+  {showPlayerTurn && (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className={`fixed top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r ${currentTheme.turnNotificationGradient} text-white px-4 py-2 rounded-full shadow-lg z-20 text-sm border-2 ${currentTheme.turnNotificationBorder}`}
+    >
+      <div className="font-bold flex items-center">
+        <span className="mr-2">{getCurrentPlayerName()}'s Turn</span>
+        {/* Add a small animated indicator */}
+        <motion.div
+          animate={{ scale: [1, 1.2, 1] }}
+          transition={{ duration: 1, repeat: Infinity }}
+          className="w-2 h-2 rounded-full bg-white"
+        />
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
       
       {/* Game board - with better scaling */}
       <div 
@@ -166,14 +202,14 @@ const GameBoard = ({
             
             return (
               <GameCard
-                key={card.uniqueId}
+                key={card.uniqueId || `card-${index}`} // Ensure each card has a unique key
                 card={enhancedCard}
                 index={index}
                 isFlipped={flippedIndices.includes(index)}
                 isMatched={matchedPairs.includes(card.id)}
                 handleCardClick={() => handleCardClick(index)}
                 styles={styles}
-                gameTheme={gameTheme} // Pass the theme to GameCard
+                gameTheme={gameTheme}
               />
             );
           })}

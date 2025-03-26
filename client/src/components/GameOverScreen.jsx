@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { getDifficultyName } from "../utils/utils";
+import socketService from "../services/socketService";
 
 const GameOverScreen = ({
   difficulty,
@@ -10,7 +11,9 @@ const GameOverScreen = ({
   initializeGame,
   setGamePhase,
   playerNames = [],
-  gameTheme = "dragonball" // Add game theme prop with default
+  gameTheme = "dragonball",
+  isOnline = false,
+  roomId = null
 }) => {
   // Define theme-specific styles
   const themeStyles = {
@@ -56,6 +59,35 @@ const GameOverScreen = ({
   };
 
   const winners = getWinners();
+
+  // Handle play again for online games
+  const handlePlayAgain = () => {
+    if (isOnline) {
+      // For online play, we need to use the socket to play again
+      socketService.playAgain({
+        roomId
+      });
+      // Then go back to the waiting room
+      setGamePhase("waiting_room");
+    } else {
+      // For local play, just use the initializeGame function
+      initializeGame();
+    }
+  };
+
+  // Handle going back to menu/lobby
+  const handleBackToMenu = () => {
+    if (isOnline) {
+      // For online play, leave the room first
+      socketService.leaveRoom({
+        roomId
+      });
+      setGamePhase("online_lobby");
+    } else {
+      // For local play, just go back to the intro
+      setGamePhase("intro");
+    }
+  };
 
   // Animation variants
   const containerVariants = {
@@ -103,8 +135,14 @@ const GameOverScreen = ({
             className={`${currentTheme.subtitle} mb-1`}
             variants={itemVariants}
           >
-            {getDifficultyName(difficulty)} Mode
+            {getDifficultyName(difficulty)} Mode {isOnline ? "• Online" : ""}
           </motion.div>
+          
+          {isOnline && roomId && (
+            <motion.div className="text-xs text-gray-400 mb-2" variants={itemVariants}>
+              Room: {roomId}
+            </motion.div>
+          )}
         </motion.div>
 
         <motion.div 
@@ -128,7 +166,7 @@ const GameOverScreen = ({
               </h2>
               
               {/* Winners */}
-              <div className="flex justify-center gap-2 mb-4">
+              <div className="flex justify-center gap-2 mb-4 flex-wrap">
                 {winners.map((winner) => (
                   <motion.div
                     key={winner.id}
@@ -168,15 +206,15 @@ const GameOverScreen = ({
           variants={itemVariants}
         >
           <motion.button
-            onClick={() => setGamePhase("intro")}
+            onClick={handleBackToMenu}
             className="px-4 py-2 bg-gray-800 text-gray-100 font-medium rounded-lg shadow-md border border-gray-700"
             whileHover={{ scale: 1.05, backgroundColor: "#374151" }}
             whileTap={{ scale: 0.95 }}
           >
-            Home
+            {isOnline ? "Back to Lobby" : "Home"}
           </motion.button>
           <motion.button
-            onClick={initializeGame}
+            onClick={handlePlayAgain}
             className={`px-6 py-2 bg-gradient-to-r ${currentTheme.buttonGradient} text-white font-medium rounded-lg shadow-md`}
             whileHover={{ scale: 1.05, boxShadow: `0 0 15px ${currentTheme.buttonGlow}` }}
             whileTap={{ scale: 0.95 }}

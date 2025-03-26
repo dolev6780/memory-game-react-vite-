@@ -12,7 +12,9 @@ const GameHeader = ({
   initializeGame,
   setGamePhase,
   playerNames = [],
-  gameTheme = "dragonball" // Add game theme prop with default
+  gameTheme = "dragonball",
+  isOnline = false,
+  roomId = null
 }) => {
   // Define theme-specific styles
   const themeStyles = {
@@ -24,6 +26,8 @@ const GameHeader = ({
       buttonHover: "#374151",
       buttonBg: "bg-gray-800",
       buttonText: "text-gray-100",
+      onlineIndicator: "text-orange-400",
+      roomCode: "bg-orange-900/50"
     },
     pokemon: {
       difficultyText: "text-blue-400",
@@ -33,6 +37,8 @@ const GameHeader = ({
       buttonHover: "#1e40af",
       buttonBg: "bg-blue-900",
       buttonText: "text-gray-100",
+      onlineIndicator: "text-blue-400",
+      roomCode: "bg-blue-900/50"
     }
   };
 
@@ -44,9 +50,15 @@ const GameHeader = ({
     initializeGame();
   };
 
-  // Create a home handler
+  // Create a home handler - based on whether online or not
   const handleHome = () => {
-    setGamePhase("intro");
+    if (isOnline) {
+      // For online mode, return to waiting room
+      setGamePhase("waiting_room");
+    } else {
+      // For local mode, return to intro
+      setGamePhase("intro");
+    }
   };
 
   return (
@@ -54,11 +66,28 @@ const GameHeader = ({
       <div className="flex flex-wrap justify-between items-center">
         {/* Game info */}
         <div className="flex flex-col mb-2 sm:mb-0">
-          <div className={`text-xs sm:text-sm font-medium ${currentTheme.difficultyText}`}>
-            {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Difficulty
+          <div className="flex items-center">
+            <div className={`text-xs sm:text-sm font-medium ${currentTheme.difficultyText}`}>
+              {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Difficulty
+            </div>
+            
+            {/* Online indicator */}
+            {isOnline && (
+              <div className={`ml-2 text-xs px-2 py-0.5 rounded-full ${currentTheme.roomCode} ${currentTheme.onlineIndicator}`}>
+                ONLINE
+              </div>
+            )}
           </div>
+          
+          {/* Room code if online */}
+          {isOnline && roomId && (
+            <div className={`text-xs ${currentTheme.onlineIndicator} font-mono`}>
+              Room: {roomId}
+            </div>
+          )}
+          
           <div className={`text-xs ${currentTheme.statsText}`}>
-            {matchedPairs.length} / {characters.length} Pairs Found
+            {matchedPairs.length} / {characters?.length || 0} Pairs Found
           </div>
           <div className={`text-xs ${currentTheme.statsText}`}>
             {moves} Moves
@@ -102,7 +131,7 @@ const GameHeader = ({
             whileHover={{ scale: 1.05, backgroundColor: currentTheme.buttonHover }}
             whileTap={{ scale: 0.95 }}
           >
-            Restart
+            {isOnline ? "Return" : "Restart"}
           </motion.button>
           <motion.button
             onClick={handleHome}
@@ -110,7 +139,7 @@ const GameHeader = ({
             whileHover={{ scale: 1.05, backgroundColor: currentTheme.buttonHover }}
             whileTap={{ scale: 0.95 }}
           >
-            Home
+            {isOnline ? "Lobby" : "Home"}
           </motion.button>
         </div>
       </div>

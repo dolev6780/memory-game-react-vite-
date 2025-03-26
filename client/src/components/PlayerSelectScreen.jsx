@@ -10,14 +10,19 @@ import pokeball from '../assets/pokeball.png';
 
 const PlayerSelectScreen = ({ 
   difficulty, 
+  setDifficulty, // Make sure this prop is included and passed correctly
   playerCount, 
   handlePlayerCountSelect, 
   setGamePhase, 
   handleStartGame,
   playerNames = [],
   setPlayerNames,
-  gameTheme = "dragonball" // Add game theme prop with default
+  gameTheme = "dragonball" 
 }) => {
+  // Optional debugging logs
+  console.log("Difficulty in PlayerSelectScreen:", difficulty);
+  console.log("setDifficulty function available:", typeof setDifficulty === 'function');
+
   // Define theme-specific styles
   const themeStyles = {
     dragonball: {
@@ -29,6 +34,8 @@ const PlayerSelectScreen = ({
       buttonGlow: "rgba(255, 160, 0, 0.5)",
       selectedCount: "bg-red-500",
       inputFocus: "focus:ring-red-400 focus:border-red-400",
+      difficultyActive: "bg-red-500 text-white", 
+      difficultyInactive: "bg-gray-700/70 text-gray-200 hover:bg-gray-700"
     },
     pokemon: {
       container: "bg-blue-500/20 border-white/20",
@@ -39,6 +46,8 @@ const PlayerSelectScreen = ({
       buttonGlow: "rgba(96, 165, 250, 0.5)",
       selectedCount: "bg-blue-500",
       inputFocus: "focus:ring-blue-400 focus:border-blue-400",
+      difficultyActive: "bg-blue-500 text-white",
+      difficultyInactive: "bg-gray-700/70 text-gray-200 hover:bg-gray-700"
     }
   };
 
@@ -78,6 +87,12 @@ const PlayerSelectScreen = ({
     visible: { opacity: 1, y: 0 }
   };
 
+  // Function to handle difficulty change
+  const handleDifficultyChange = (newDifficulty) => {
+    console.log("Setting difficulty to:", newDifficulty);
+    setDifficulty(newDifficulty);
+  };
+
   return (
     <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden`}>
       <div className="absolute -inset-full top-0 left-0 h-64 w-96 bg-white/10 rotate-45 transform translate-x-2/3 translate-y-1/3 z-0 opacity-50"></div>
@@ -86,6 +101,7 @@ const PlayerSelectScreen = ({
         initial={{ x: 100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
+        className="relative z-10"
       >
         <motion.div 
           className="mb-6"
@@ -97,14 +113,74 @@ const PlayerSelectScreen = ({
             className={`text-2xl font-bold ${currentTheme.title} mb-2`}
             variants={itemVariants}
           >
-            {getDifficultyName(difficulty)}
+            Game Setup
           </motion.h1>
           <motion.p 
             className="text-gray-200 mb-3"
             variants={itemVariants}
           >
-            Select the number of players
+            Set up your local game
           </motion.p>
+        </motion.div>
+
+        {/* Difficulty Selection - Fixed version */}
+        <motion.div 
+          className="mb-6 relative z-20"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.h2 
+            className={`text-xl font-bold ${currentTheme.subtitle} mb-3`}
+            variants={itemVariants}
+          >
+            Select Difficulty
+          </motion.h2>
+          
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-4">
+            {/* Individual buttons for each difficulty level */}
+            <motion.button
+              onClick={() => handleDifficultyChange("easy")}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              variants={itemVariants}
+              className={`py-2 sm:py-3 px-2 sm:px-4 rounded-lg text-sm sm:text-base font-semibold uppercase transition-colors duration-200 relative z-10 cursor-pointer ${
+                difficulty === "easy"
+                  ? currentTheme.difficultyActive
+                  : currentTheme.difficultyInactive
+              }`}
+            >
+              easy
+            </motion.button>
+            
+            <motion.button
+              onClick={() => handleDifficultyChange("medium")}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              variants={itemVariants}
+              className={`py-2 sm:py-3 px-2 sm:px-4 rounded-lg text-sm sm:text-base font-semibold uppercase transition-colors duration-200 relative z-10 cursor-pointer ${
+                difficulty === "medium"
+                  ? currentTheme.difficultyActive
+                  : currentTheme.difficultyInactive
+              }`}
+            >
+              medium
+            </motion.button>
+            
+            <motion.button
+              onClick={() => handleDifficultyChange("hard")}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              variants={itemVariants}
+              className={`py-2 sm:py-3 px-2 sm:px-4 rounded-lg text-sm sm:text-base font-semibold uppercase transition-colors duration-200 relative z-10 cursor-pointer ${
+                difficulty === "hard"
+                  ? currentTheme.difficultyActive
+                  : currentTheme.difficultyInactive
+              }`}
+            >
+              hard
+            </motion.button>
+          </div>
         </motion.div>
 
         <motion.div 

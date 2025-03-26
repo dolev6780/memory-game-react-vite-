@@ -5,8 +5,11 @@ import IntroScreen from "./components/IntroScreen";
 import PlayerSelectScreen from "./components/PlayerSelectScreen";
 import ShufflingScreen from "./components/ShufflingScreen";
 import GameOverScreen from "./components/GameOverScreen";
+import OnlineLobby from "./components/OnlineLobby";
+import WaitingRoom from "./components/WaitingRoom";
 import { dragonballCharacters, dragonballBackgroundImage, pokemonBackgroundImage, pokemonCharacters } from "./constants";
-import { v4 as uuidv4 } from "uuid"; // You'll need to install this package
+import socketService from "./services/socketService";
+import { v4 as uuidv4 } from "uuid";
 
 // Difficulty level configurations
 const DIFFICULTY_CONFIG = {
@@ -16,38 +19,65 @@ const DIFFICULTY_CONFIG = {
 };
 
 const App = () => {
+  // Game state
   const [gamePhase, setGamePhase] = useState("intro");
+  const [gameTheme, setGameTheme] = useState("dragonball");
   const [difficulty, setDifficulty] = useState("medium");
-  const [gameTheme, setGameTheme] = useState("dragonball"); // Add game theme state
-  const [gameTitle, setGameTitle] = useState("Dragon Ball"); // Add game theme state
+  const [isOnline, setIsOnline] = useState(false);
+  
+  // Local game state
   const [playerCount, setPlayerCount] = useState(1);
   const [cards, setCards] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [flippedIndices, setFlippedIndices] = useState([]);
   const [matchedPairs, setMatchedPairs] = useState([]);
-  const [matchedBy, setMatchedBy] = useState({}); // Track which player matched which card
+  const [matchedBy, setMatchedBy] = useState({});
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [playerScores, setPlayerScores] = useState([]);
   const [playerMoves, setPlayerMoves] = useState([]);
   const [moves, setMoves] = useState(0);
   const [showPlayerTurn, setShowPlayerTurn] = useState(false);
   const [shuffling, setShuffling] = useState(false);
+  const [playerNames, setPlayerNames] = useState([]);
+  
+  // Layout configuration for online games
+  const [layoutConfig, setLayoutConfig] = useState(null);
+  
+  // Online multiplayer state
+  const [multiplayerData, setMultiplayerData] = useState({
+    roomId: null,
+    isHost: false,
+    players: [],
+    gameState: null,
+    gameTheme: null  // Add gameTheme property
+  });
+  
+  // Window size for responsive design
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
   });
-  const [playerNames, setPlayerNames] = useState([]);
 
-  // Function to handle theme selection
-  const handleThemeSelect = (theme, title) => {
-    setGameTheme(theme);
-    setGameTitle(title)
-  };
+  // Theme synchronization effect
+  useEffect(() => {
+    // If we have a theme in multiplayerData and it's different from current theme
+    if (multiplayerData.gameTheme && multiplayerData.gameTheme !== gameTheme) {
+      console.log(`Synchronizing theme: ${gameTheme} -> ${multiplayerData.gameTheme}`);
+      // Use a slight delay to ensure all components update properly
+      const timerId = setTimeout(() => {
+        setGameTheme(multiplayerData.gameTheme);
+      }, 50);
+      
+      return () => clearTimeout(timerId);
+    }
+  }, [multiplayerData.gameTheme, gameTheme, setGameTheme]);
 
-  // Function to get the current character set based on theme
-  const getCurrentCharacters = useCallback(() => {
-    return gameTheme === "dragonball" ? dragonballCharacters : pokemonCharacters;
-  }, [gameTheme]);
+  socketService.on("difficultyUpdated", (data) => {
+    if (data.difficulty && data.difficulty !== difficulty) {
+      console.log(`Updating difficulty from server: ${difficulty} -> ${data.difficulty}`);
+      setDifficulty(data.difficulty);
+    }
+  });
 
   // Handle window resize for responsive design
   useEffect(() => {
@@ -61,113 +91,253 @@ const App = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  // Updated styles calculation function for the App component
-const styles = useCallback(() => {
-  const config = DIFFICULTY_CONFIG[difficulty];
-  const isSmallScreen = windowSize.width < 640;
-  const isMediumScreen = windowSize.width >= 640 && windowSize.width < 1024;
   
-  // Calculate available space
-  const availableHeight = windowSize.height - 120; // Account for header and padding
-  const maxGridHeight = availableHeight * 0.85; // Use 85% of available height
-
-  // Calculate card dimensions based on screen size
-  let cardWidth, cardHeight, fontSize, gapSize;
-
-  if (isSmallScreen) {
-    // Mobile styling - smaller cards
-    const availableWidth = Math.min(windowSize.width - 24, 380);
-    cardWidth = Math.floor(
-      (availableWidth - (config.cols - 1) * 6) / config.cols
-    );
-    cardHeight = Math.floor(cardWidth * 1.35); // Slightly less tall
+  // Setup socket listeners for online gameplay
+  useEffect(() => {
+    if (!isOnline) return;
     
-    // Ensure cards don't exceed the available height
-    const totalCardHeight = cardHeight * config.rows + (config.rows - 1) * 6;
-    if (totalCardHeight > maxGridHeight) {
-      const scaleFactor = maxGridHeight / totalCardHeight;
-      cardHeight = Math.floor(cardHeight * scaleFactor);
-      cardWidth = Math.floor(cardWidth * scaleFactor);
+    // Listen for game events from the server
+    socketService.on("gameStarted", (data) => {
+      console.log("Game started event in App.jsx:", data);
+      
+      // If the server provided layout configuration, use it
+      if (data.layoutConfig) {
+        console.log("Using layout config from server:", data.layoutConfig);
+        setLayoutConfig(data.layoutConfig);
+      }
+      
+      // Make sure we're using the server's game state
+      setFlippedIndices(data.gameState?.flippedIndices || []);
+      setMatchedPairs(data.gameState?.matchedPairs || []);
+      setMatchedBy(data.gameState?.matchedBy || {});
+      
+      // If cards have theme information, update the local cards
+      if (data.gameState && data.gameState.cards) {
+        setCards(data.gameState.cards);
+      }
+      
+      // Update difficulty if provided by server
+      if (data.difficulty && data.difficulty !== difficulty) {
+        console.log(`Updating difficulty: ${difficulty} -> ${data.difficulty}`);
+        setDifficulty(data.difficulty);
+      }
+    });
+    
+    socketService.on("cardFlipped", (data) => {
+      // Make sure we're using the server's game state
+      setFlippedIndices(data.gameState.flippedIndices);
+      setMatchedPairs(data.gameState.matchedPairs);
+      setMatchedBy(data.gameState.matchedBy);
+      
+      // If cards have theme information, update the local cards
+      if (data.gameState.cards) {
+        setCards(data.gameState.cards);
+      }
+      
+      // Update player scores
+      setPlayerScores(data.players.map(player => ({
+        id: player.id,
+        name: player.name,
+        score: player.score,
+        moves: player.moves
+      })));
+    });
+    
+    socketService.on("turnUpdate", (data) => {
+      // Update with server's game state
+      setFlippedIndices(data.gameState.flippedIndices);
+      setMatchedPairs(data.gameState.matchedPairs);
+      setMatchedBy(data.gameState.matchedBy);
+      
+      // If cards have theme information, update the local cards
+      if (data.gameState.cards) {
+        setCards(data.gameState.cards);
+      }
+      
+      // Update current player
+      setCurrentPlayer(data.currentPlayer);
+      setShowPlayerTurn(true);
+      
+      // Hide player turn notification after delay
+      setTimeout(() => {
+        setShowPlayerTurn(false);
+      }, 1500);
+    });
+    
+    socketService.on("gameOver", (data) => {
+      // Update final game state
+      setFlippedIndices(data.gameState.flippedIndices);
+      setMatchedPairs(data.gameState.matchedPairs);
+      setMatchedBy(data.gameState.matchedBy);
+      
+      // If cards have theme information, update the local cards
+      if (data.gameState.cards) {
+        setCards(data.gameState.cards);
+      }
+      
+      // Update player scores one last time
+      setPlayerScores(data.players.map(player => ({
+        id: player.id,
+        name: player.name,
+        score: player.score,
+        moves: player.moves
+      })));
+      
+      // Move to game over screen
+      setGamePhase("game_over");
+    });
+    
+    // Clean up on component unmount
+    return () => {
+      socketService.on("gameStarted", null);
+      socketService.on("cardFlipped", null);
+      socketService.on("turnUpdate", null);
+      socketService.on("gameOver", null);
+    };
+  }, [isOnline, difficulty]);
+
+  // Updated styles calculation function
+  const styles = useCallback(() => {
+    // For online mode, calculate layout based on card count
+    let config;
+    if (isOnline) {
+      // Determine layout based on total card count (consistent for all players)
+      const totalCards = cards.length;
+      
+      // Create fixed layouts based on card count that match the difficulty levels
+      const layoutByCardCount = {
+        12: { pairs: 6, cols: 4, rows: 3 },  // Easy: 6 pairs
+        20: { pairs: 10, cols: 5, rows: 4 }, // Medium: 10 pairs
+        30: { pairs: 15, cols: 6, rows: 5 }  // Hard: 15 pairs
+      };
+      
+      if (totalCards > 0 && layoutByCardCount[totalCards]) {
+        // Use the predefined layout for this card count
+        config = layoutByCardCount[totalCards];
+        console.log(`Using synchronized layout for ${totalCards} cards: ${config.cols}x${config.rows}`);
+      } else if (totalCards > 0) {
+        // Fallback - calculate a reasonable layout if number of cards doesn't match predefined layouts
+        const cols = Math.ceil(Math.sqrt(totalCards));
+        const rows = Math.ceil(totalCards / cols);
+        config = {
+          pairs: totalCards / 2,
+          cols: cols,
+          rows: rows
+        };
+        console.log(`Calculated layout for ${totalCards} cards: ${config.cols}x${config.rows}`);
+      } else {
+        // No cards yet, use difficulty-based default
+        config = DIFFICULTY_CONFIG[difficulty];
+        console.log(`Using default layout for ${difficulty}: ${config.cols}x${config.rows}`);
+      }
+    } else {
+      // For local games, use the difficulty-based configuration as before
+      config = DIFFICULTY_CONFIG[difficulty];
     }
     
-    fontSize = {
-      title: Math.max(10, Math.floor(cardWidth * 0.22)),
-      name: Math.max(7, Math.floor(cardWidth * 0.16)),
-    };
-    gapSize = 6;
-  } else if (isMediumScreen) {
-    // Tablet styling - optimized dimensions
-    const availableWidth = Math.min(windowSize.width - 40, 650);
-    cardWidth = Math.floor(
-      (availableWidth - (config.cols - 1) * 8) / config.cols
-    );
-    cardHeight = Math.floor(cardWidth * 1.35);
+    const isSmallScreen = windowSize.width < 640;
+    const isMediumScreen = windowSize.width >= 640 && windowSize.width < 1024;
     
-    // Ensure cards don't exceed the available height
-    const totalCardHeight = cardHeight * config.rows + (config.rows - 1) * 8;
-    if (totalCardHeight > maxGridHeight) {
-      const scaleFactor = maxGridHeight / totalCardHeight;
-      cardHeight = Math.floor(cardHeight * scaleFactor);
-      cardWidth = Math.floor(cardWidth * scaleFactor);
+    // Calculate available space
+    const availableHeight = windowSize.height - 120;
+    const maxGridHeight = availableHeight * 0.85;
+  
+    // Calculate card dimensions based on screen size
+    let cardWidth, cardHeight, fontSize, gapSize;
+  
+    if (isSmallScreen) {
+      // Mobile styling - smaller cards
+      const availableWidth = Math.min(windowSize.width - 24, 380);
+      cardWidth = Math.floor(
+        (availableWidth - (config.cols - 1) * 6) / config.cols
+      );
+      cardHeight = Math.floor(cardWidth * 1.35);
+      
+      // Ensure cards don't exceed the available height
+      const totalCardHeight = cardHeight * config.rows + (config.rows - 1) * 6;
+      if (totalCardHeight > maxGridHeight) {
+        const scaleFactor = maxGridHeight / totalCardHeight;
+        cardHeight = Math.floor(cardHeight * scaleFactor);
+        cardWidth = Math.floor(cardWidth * scaleFactor);
+      }
+      
+      fontSize = {
+        title: Math.max(10, Math.floor(cardWidth * 0.22)),
+        name: Math.max(7, Math.floor(cardWidth * 0.16)),
+      };
+      gapSize = 6;
+    } else if (isMediumScreen) {
+      // Tablet styling
+      const availableWidth = Math.min(windowSize.width - 40, 650);
+      cardWidth = Math.floor(
+        (availableWidth - (config.cols - 1) * 8) / config.cols
+      );
+      cardHeight = Math.floor(cardWidth * 1.35);
+      
+      // Ensure cards don't exceed the available height
+      const totalCardHeight = cardHeight * config.rows + (config.rows - 1) * 8;
+      if (totalCardHeight > maxGridHeight) {
+        const scaleFactor = maxGridHeight / totalCardHeight;
+        cardHeight = Math.floor(cardHeight * scaleFactor);
+        cardWidth = Math.floor(cardWidth * scaleFactor);
+      }
+      
+      fontSize = {
+        title: Math.max(12, Math.floor(cardWidth * 0.2)),
+        name: Math.max(9, Math.floor(cardWidth * 0.15)),
+      };
+      gapSize = 8;
+    } else {
+      // Desktop styling
+      const availableWidth = Math.min(windowSize.width - 60, 850);
+      cardWidth = Math.floor(
+        (availableWidth - (config.cols - 1) * 10) / config.cols
+      );
+      cardHeight = Math.floor(cardWidth * 1.35);
+      
+      // Ensure cards don't exceed the available height
+      const totalCardHeight = cardHeight * config.rows + (config.rows - 1) * 10;
+      if (totalCardHeight > maxGridHeight) {
+        const scaleFactor = maxGridHeight / totalCardHeight;
+        cardHeight = Math.floor(cardHeight * scaleFactor);
+        cardWidth = Math.floor(cardWidth * scaleFactor);
+      }
+      
+      fontSize = {
+        title: Math.max(14, Math.floor(cardWidth * 0.18)),
+        name: Math.max(10, Math.floor(cardWidth * 0.13)),
+      };
+      gapSize = 10;
     }
-    
-    fontSize = {
-      title: Math.max(12, Math.floor(cardWidth * 0.2)),
-      name: Math.max(9, Math.floor(cardWidth * 0.15)),
+  
+    // Calculate grid dimensions
+    const gridWidth = cardWidth * config.cols + (config.cols - 1) * gapSize;
+    const gridHeight = cardHeight * config.rows + (config.rows - 1) * gapSize;
+  
+    return {
+      container: {
+        width: "100%",
+        maxWidth: `${gridWidth + 16}px`,
+        margin: "0 auto",
+      },
+      cardGrid: {
+        display: "grid",
+        gridTemplateColumns: `repeat(${config.cols}, 1fr)`,
+        gap: `${gapSize}px`,
+        margin: "0 auto",
+      },
+      card: {
+        width: `${cardWidth}px`,
+        height: `${cardHeight}px`,
+        position: "relative",
+        perspective: "1000px",
+        cursor: "pointer",
+      },
+      fontSize: fontSize,
     };
-    gapSize = 8;
-  } else {
-    // Desktop styling - balanced dimensions
-    const availableWidth = Math.min(windowSize.width - 60, 850);
-    cardWidth = Math.floor(
-      (availableWidth - (config.cols - 1) * 10) / config.cols
-    );
-    cardHeight = Math.floor(cardWidth * 1.35);
-    
-    // Ensure cards don't exceed the available height
-    const totalCardHeight = cardHeight * config.rows + (config.rows - 1) * 10;
-    if (totalCardHeight > maxGridHeight) {
-      const scaleFactor = maxGridHeight / totalCardHeight;
-      cardHeight = Math.floor(cardHeight * scaleFactor);
-      cardWidth = Math.floor(cardWidth * scaleFactor);
-    }
-    
-    fontSize = {
-      title: Math.max(14, Math.floor(cardWidth * 0.18)),
-      name: Math.max(10, Math.floor(cardWidth * 0.13)),
-    };
-    gapSize = 10;
-  }
+  }, [difficulty, windowSize, isOnline, cards]);
 
-  // Calculate grid dimensions
-  const gridWidth = cardWidth * config.cols + (config.cols - 1) * gapSize;
-  const gridHeight = cardHeight * config.rows + (config.rows - 1) * gapSize;
-
-  return {
-    container: {
-      width: "100%",
-      maxWidth: `${gridWidth + 16}px`,
-      margin: "0 auto",
-    },
-    cardGrid: {
-      display: "grid",
-      gridTemplateColumns: `repeat(${config.cols}, 1fr)`,
-      gap: `${gapSize}px`,
-      margin: "0 auto",
-    },
-    card: {
-      width: `${cardWidth}px`,
-      height: `${cardHeight}px`,
-      position: "relative",
-      perspective: "1000px",
-      cursor: "pointer",
-    },
-    fontSize: fontSize,
-  };
-}, [difficulty, windowSize]);
-
-  // Initialize players
+  // Initialize players for local gameplay
   const initializePlayers = useCallback(() => {
     const players = Array.from({ length: playerCount }, (_, index) => ({
       id: index,
@@ -182,15 +352,20 @@ const styles = useCallback(() => {
 
   // Initialize or reset the game
   const initializeGame = useCallback(() => {
+    // Skip if we're in online mode
+    if (isOnline) return;
+    
     setShuffling(true);
     setGamePhase("shuffling");
     setFlippedIndices([]);
     setMatchedPairs([]);
-    setMatchedBy({}); // Reset matched pairs tracking
+    setMatchedBy({});
     setMoves(0);
 
-    // Get characters based on the current theme
-    const characterSet = getCurrentCharacters();
+    console.log(`Initializing game with theme: ${gameTheme}`);
+
+    // Get the appropriate character set
+    const characterSet = gameTheme === "dragonball" ? dragonballCharacters : pokemonCharacters;
 
     // Select characters based on difficulty
     const config = DIFFICULTY_CONFIG[difficulty];
@@ -200,10 +375,10 @@ const styles = useCallback(() => {
     const selectedCharacters = shuffledCharacters.slice(0, config.pairs);
     setCharacters(selectedCharacters);
 
-    // Create card pairs
+    // Create card pairs with theme information
     const cardPairs = selectedCharacters.flatMap((character) => [
-      { ...character, uniqueId: uuidv4() },
-      { ...character, uniqueId: uuidv4() },
+      { ...character, uniqueId: uuidv4(), cardTheme: gameTheme }, // Add theme to each card
+      { ...character, uniqueId: uuidv4(), cardTheme: gameTheme }, // Add theme to each card
     ]);
 
     // Shuffle cards
@@ -220,7 +395,7 @@ const styles = useCallback(() => {
       setShuffling(false);
       setGamePhase("game_board");
     }, 1500);
-  }, [difficulty, playerCount, initializePlayers, getCurrentCharacters]);
+  }, [difficulty, playerCount, initializePlayers, gameTheme, isOnline]);
 
   // Start game with player names
   const handleStartGame = (names) => {
@@ -245,6 +420,16 @@ const styles = useCallback(() => {
   // Handle card click
   const handleCardClick = useCallback(
     (index) => {
+      // For online mode, just send the card click to the server
+      if (isOnline) {
+        socketService.cardClick({
+          roomId: multiplayerData.roomId,
+          cardIndex: index
+        });
+        return;
+      }
+      
+      // Local gameplay logic
       // Prevent clicking if already flipped or matched
       if (
         flippedIndices.includes(index) ||
@@ -310,22 +495,23 @@ const styles = useCallback(() => {
     },
     [
       cards,
-      characters.length,
+      characters?.length,
       currentPlayer,
       flippedIndices,
+      isOnline,
       matchedPairs,
       moves,
       playerCount,
       playerMoves,
       playerScores,
       switchPlayer,
+      multiplayerData.roomId
     ]
   );
 
-  // Handle difficulty selection
-  const handleDifficultySelect = (level) => {
-    setDifficulty(level);
-    setGamePhase("player_select");
+  // Handle game theme selection
+  const handleThemeSelect = (theme) => {
+    setGameTheme(theme);
   };
 
   // Handle player count selection
@@ -335,15 +521,34 @@ const styles = useCallback(() => {
     setPlayerNames(Array(count).fill('').map((_, i) => `Player ${i + 1}`));
   };
 
+  // Handle online mode selection from intro screen - UPDATED
+  const handleOnlineSelect = (online) => {
+    setIsOnline(online);
+    if (online) {
+      setGamePhase("online_lobby");
+    } else {
+      // For local play, go directly to player selection (which now includes difficulty)
+      setGamePhase("player_select");
+    }
+  };
+
   // Initialize game when component mounts
   useEffect(() => {
-    // This is just to initialize state, actual game starts after player interaction
+    // Initialize characters based on selected theme
+    const characterSet = gameTheme === "dragonball" ? dragonballCharacters : pokemonCharacters;
     const config = DIFFICULTY_CONFIG[difficulty];
-    const characterSet = getCurrentCharacters();
     const initialCharacters = characterSet.slice(0, config.pairs);
     setCharacters(initialCharacters);
-  }, [difficulty, getCurrentCharacters]);
+  }, [difficulty, gameTheme]);
 
+  // Clean up socket connection when component unmounts
+  useEffect(() => {
+    return () => {
+      socketService.disconnect();
+    };
+  }, []);
+
+  // Phase controller - determine which component to show
   const phaseController = () => {
     switch (gamePhase) {
       case "intro":
@@ -358,9 +563,9 @@ const styles = useCallback(() => {
             <IntroScreen
               difficulty={difficulty}
               gameTheme={gameTheme}
-              gameTitle={gameTitle}
               handleThemeSelect={handleThemeSelect}
-              handleDifficultySelect={handleDifficultySelect}
+              handleOnlineSelect={handleOnlineSelect} // No longer passing handleDifficultySelect
+              gameTitle={gameTheme === "dragonball" ? "Dragon Ball" : "Pokémon"}
             />
           </motion.div>
         );
@@ -375,16 +580,63 @@ const styles = useCallback(() => {
           >
             <PlayerSelectScreen
               difficulty={difficulty}
-              gameTheme={gameTheme}
+              setDifficulty={setDifficulty} // Add this prop
               playerCount={playerCount}
               handlePlayerCountSelect={handlePlayerCountSelect}
               setGamePhase={setGamePhase}
               handleStartGame={handleStartGame}
               playerNames={playerNames}
               setPlayerNames={setPlayerNames}
+              gameTheme={gameTheme}
             />
           </motion.div>
         );
+      case "online_lobby":
+        return (
+          <motion.div
+            key="online-lobby"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -100 }}
+            transition={{ duration: 0.3 }}
+          >
+            <OnlineLobby
+              gameTheme={gameTheme}
+              setGamePhase={setGamePhase}
+              setMultiplayerData={setMultiplayerData}
+              difficulty={difficulty}
+              setDifficulty={setDifficulty}
+              setGameTheme={setGameTheme}
+            />
+          </motion.div>
+        );
+        case "waiting_room":
+          return (
+            <motion.div
+              key="waiting-room"
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -100 }}
+              transition={{ duration: 0.3 }}
+            >
+              <WaitingRoom
+                multiplayerData={multiplayerData}
+                setGamePhase={setGamePhase}
+                gameTheme={gameTheme}
+                setGameTheme={setGameTheme}
+                difficulty={difficulty}
+                setDifficulty={setDifficulty} // Add this prop
+                setCards={setCards}
+                setMatchedPairs={setMatchedPairs}
+                setFlippedIndices={setFlippedIndices}
+                setPlayerScores={setPlayerScores}
+                setCurrentPlayer={setCurrentPlayer}
+                setPlayerNames={setPlayerNames}
+                setMatchedBy={setMatchedBy}
+                setShowPlayerTurn={setShowPlayerTurn}
+              />
+            </motion.div>
+          );
       case "shuffling":
         return (
           <motion.div
@@ -415,7 +667,7 @@ const styles = useCallback(() => {
               cards={cards}
               flippedIndices={flippedIndices}
               matchedPairs={matchedPairs}
-              matchedBy={matchedBy} // Pass the matchedBy object to GameBoard
+              matchedBy={matchedBy}
               handleCardClick={handleCardClick}
               styles={styles()}
               difficulty={difficulty}
@@ -429,6 +681,9 @@ const styles = useCallback(() => {
               setGamePhase={setGamePhase}
               playerNames={playerNames}
               gameTheme={gameTheme}
+              setGameTheme={setGameTheme}
+              isOnline={isOnline}
+              layoutConfig={layoutConfig} // Pass layout config to GameBoard
             />
           </motion.div>
         );
@@ -447,10 +702,12 @@ const styles = useCallback(() => {
               moves={moves}
               playerCount={playerCount}
               playerScores={playerScores}
-              initializeGame={initializeGame}
+              initializeGame={isOnline ? () => setGamePhase("waiting_room") : initializeGame}
               setGamePhase={setGamePhase}
               playerNames={playerNames}
               gameTheme={gameTheme}
+              isOnline={isOnline}
+              roomId={multiplayerData.roomId}
             />
           </motion.div>
         );
@@ -459,12 +716,12 @@ const styles = useCallback(() => {
     }
   };
 
-  // Get the correct background image based on theme
+  // Get the current background image based on theme
   const backgroundImage = gameTheme === "dragonball" ? dragonballBackgroundImage : pokemonBackgroundImage;
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-2 sm:p-4 bg-gray-900 relative overflow-hidden">
-      {/* Background image - now dynamic based on theme */}
+      {/* Background image */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 z-0"
         style={{ backgroundImage: `url(${backgroundImage})` }}

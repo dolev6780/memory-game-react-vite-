@@ -8,8 +8,7 @@ const GameCard = ({
   isMatched, 
   handleCardClick, 
   styles, 
-  currentPlayer,
-  gameTheme = "dragonball" // Add game theme prop with default
+  gameTheme = "dragonball" 
 }) => {
   // Define theme-specific styles
   const themeStyles = {
@@ -29,8 +28,12 @@ const GameCard = ({
     }
   };
 
+  // IMPORTANT: Use the card's theme if available, otherwise fall back to the game theme
+  // This ensures cards are rendered with their intended theme regardless of client settings
+  const cardTheme = card.cardTheme || gameTheme;
+  
   // Get current theme styles
-  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+  const currentTheme = themeStyles[cardTheme] || themeStyles.dragonball;
 
   // Card styling with 3D flip effect
   const cardInnerStyles = {
@@ -117,16 +120,18 @@ const GameCard = ({
             </div>
             
             {/* Matched indicator with player name */}
-            {isMatched && (
+            {isMatched && card.matchedBy && (
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div className="bg-black bg-opacity-30 text-white rounded-full p-1 shadow-lg mb-2">
-                  {/* Optional checkmark or icon could go here */}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
                 </div>
                 <div 
                   className={`${currentTheme.matchedBadgeBg} text-white px-2 py-1 rounded-md shadow-lg text-center`}
                   style={{ fontSize: styles.fontSize.name }}
                 >
-                  {card.matchedBy || "Player"}
+                  Matched by {card.matchedBy}
                 </div>
               </div>
             )}
