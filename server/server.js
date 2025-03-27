@@ -10,8 +10,9 @@ app.use(cors());
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*", // In production, restrict to your app domain
-    methods: ["GET", "POST"]
+    origin: ["https://memorygamedb.netlify.app", "http://localhost:5173"],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
