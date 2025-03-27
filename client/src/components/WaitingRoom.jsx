@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import socketService from "../services/socketService";
+import useSocket from "../hooks/useSocket";
 import { dragonballCharacters, pokemonCharacters } from "../constants";
 import { v4 as uuidv4 } from "uuid";
 
@@ -31,6 +31,9 @@ const WaitingRoom = ({
   
   // Add ref for chat container scrolling
   const chatContainerRef = useRef(null);
+  
+  // Initialize the socket hook with a unique component ID
+  const socket = useSocket("WaitingRoom", true);
   
   // Theme-specific styles
   const themeStyles = {
@@ -70,16 +73,6 @@ const WaitingRoom = ({
     }, 3000);
   }, []);
 
-  // Define resetState first before using it in other callbacks
-  const resetState = useCallback(() => {
-    // Reset all relevant state
-    setChatMessage("");
-    setMessages([]);
-    setNotification(null);
-    setCountdown(null);
-    setGeneratedCards(null);
-  }, []);
-
   // Copy room code function
   const copyRoomCode = useCallback(() => {
     navigator.clipboard.writeText(roomId)
@@ -93,12 +86,11 @@ const WaitingRoom = ({
 
   // Now define handleLeaveRoom which uses resetState
   const handleLeaveRoom = useCallback(() => {
-    resetState();
-    socketService.leaveRoom({
+    socket.leaveRoom({
       roomId
     });
     setGamePhase("online_lobby");
-  }, [roomId, setGamePhase, resetState]);
+  }, [roomId, setGamePhase, socket]);
 
   // Memoize initializeGame function
   const initializeGame = useCallback(() => {
@@ -149,6 +141,9 @@ const WaitingRoom = ({
         return prev - 1;
       });
     }, 1000);
+    
+    // Clear interval on cleanup
+    return () => clearInterval(interval);
   }, [initializeGame]);
 
   const handleStartGame = useCallback(() => {
@@ -196,26 +191,26 @@ const WaitingRoom = ({
     setGeneratedCards(shuffledCards);
     
     // Tell server to start game with these cards, theme, and layout configuration
-    socketService.startGame({
+    socket.startGame({
       roomId,
       cards: shuffledCards,
       gameTheme: gameTheme,
       difficulty: difficulty,
       layoutConfig: layoutConfig // Send layout configuration to server
     });
-  }, [difficulty, gameTheme, roomId]);
+  }, [difficulty, gameTheme, roomId, socket]);
 
   const handleSendMessage = useCallback((e) => {
     e.preventDefault();
     
     if (!chatMessage.trim()) return;
     
-    socketService.sendMessage({
+    socket.sendMessage({
       roomId,
       message: chatMessage
     });
     setChatMessage("");
-  }, [chatMessage, roomId]);
+  }, [chatMessage, roomId, socket]);
 
   // Enforce theme synchronization with the room
   useEffect(() => {
@@ -227,15 +222,6 @@ const WaitingRoom = ({
     }
   }, [multiplayerData.gameTheme, gameTheme, setGameTheme]);
 
-  // Effect to ensure socket is connected
-  useEffect(() => {
-    // Ensure socket is connected
-    if (!socketService.isConnected()) {
-      console.log("Socket not connected in waiting room, connecting...");
-      socketService.connect();
-    }
-  }, []);
-
   // Effect to scroll chat to bottom when messages change
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -246,37 +232,36 @@ const WaitingRoom = ({
 
   // Set up socket event listeners
   useEffect(() => {
-    // Update players if they change from props
+    // Update initial state from multiplayerData
     if (multiplayerData.players) {
       setPlayers(multiplayerData.players);
     }
     
-    // Add these event handlers that were missing before
-    socketService.on("playerJoined", (data) => {
+    // Set up event listeners
+    socket.addEventListener("playerJoined", (data) => {
       console.log("Player joined:", data);
       setPlayers(data.players);
       showNotification(`${data.message}`);
     });
     
-    socketService.on("playerLeft", (data) => {
+    socket.addEventListener("playerLeft", (data) => {
       console.log("Player left:", data);
       setPlayers(data.players);
       showNotification(`${data.message}`);
       
       // If we're not the host, check if we became the host
-      if (!isHost && data.players.find(p => p.id === socketService.socket.id)?.isHost) {
+      if (!isHost && data.players.find(p => p.id === socket.socket?.id)?.isHost) {
         setIsHost(true);
         showNotification("You are now the host!");
       }
     });
     
-    socketService.on("newMessage", (data) => {
+    socket.addEventListener("newMessage", (data) => {
       console.log("New message received:", data);
       setMessages(prev => [...prev, data.message]);
     });
     
-    // Set up socket event listeners
-    socketService.on("gameStarted", (data) => {
+    socket.addEventListener("gameStarted", (data) => {
       console.log("Game started event received:", data);
       
       // If the server includes a theme, ensure we're using it
@@ -310,21 +295,13 @@ const WaitingRoom = ({
       startCountdown();
     });
     
-    socketService.on("gameReset", (data) => {
+    socket.addEventListener("gameReset", (data) => {
       // Reset local state
       setPlayers(data.players);
       showNotification("Game has been reset. Ready for a new game!");
     });
-    
-    return () => {
-      // Clean up listeners
-      socketService.on("playerJoined", null);
-      socketService.on("playerLeft", null);
-      socketService.on("newMessage", null);
-      socketService.on("gameStarted", null);
-      socketService.on("gameReset", null);
-    };
   }, [
+    socket,
     multiplayerData, 
     isHost, 
     setCards, 

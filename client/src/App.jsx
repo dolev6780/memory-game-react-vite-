@@ -58,6 +58,26 @@ const App = () => {
     height: window.innerHeight,
   });
 
+  // Define a cleanup function to handle phase transitions
+  const cleanupPhaseTransition = useCallback((oldPhase, newPhase) => {
+    console.log(`Phase transition: ${oldPhase} -> ${newPhase}`);
+    
+    // Clean up based on the phase we're leaving
+    if (oldPhase === "online_lobby" || oldPhase === "waiting_room") {
+      // If we're leaving any online screen without going to another online screen
+      if (newPhase !== "online_lobby" && newPhase !== "waiting_room" && newPhase !== "game_board" && newPhase !== "game_over") {
+        console.log("Leaving online mode, resetting socket state");
+        socketService.resetState();
+      }
+    }
+  }, []);
+
+  // Enhanced setGamePhase with cleanup
+  const setGamePhaseWithCleanup = useCallback((newPhase) => {
+    cleanupPhaseTransition(gamePhase, newPhase);
+    setGamePhase(newPhase);
+  }, [gamePhase, cleanupPhaseTransition]);
+
   // Theme synchronization effect
   useEffect(() => {
     // If we have a theme in multiplayerData and it's different from current theme
@@ -95,6 +115,12 @@ const App = () => {
   // Setup socket listeners for online gameplay
   useEffect(() => {
     if (!isOnline) return;
+    
+    // Clean up any existing listeners to prevent duplicates
+    socketService.on("gameStarted", null);
+    socketService.on("cardFlipped", null);
+    socketService.on("turnUpdate", null);
+    socketService.on("gameOver", null);
     
     // Listen for game events from the server
     socketService.on("gameStarted", (data) => {
@@ -184,7 +210,7 @@ const App = () => {
       })));
       
       // Move to game over screen
-      setGamePhase("game_over");
+      setGamePhaseWithCleanup("game_over");
     });
     
     // Clean up on component unmount
@@ -194,7 +220,7 @@ const App = () => {
       socketService.on("turnUpdate", null);
       socketService.on("gameOver", null);
     };
-  }, [isOnline, difficulty]);
+  }, [isOnline, difficulty, setGamePhaseWithCleanup]);
 
   // Updated styles calculation function
   const styles = useCallback(() => {
@@ -356,7 +382,7 @@ const App = () => {
     if (isOnline) return;
     
     setShuffling(true);
-    setGamePhase("shuffling");
+    setGamePhaseWithCleanup("shuffling");
     setFlippedIndices([]);
     setMatchedPairs([]);
     setMatchedBy({});
@@ -393,9 +419,9 @@ const App = () => {
     // Small delay to show shuffling animation
     setTimeout(() => {
       setShuffling(false);
-      setGamePhase("game_board");
+      setGamePhaseWithCleanup("game_board");
     }, 1500);
-  }, [difficulty, playerCount, initializePlayers, gameTheme, isOnline]);
+  }, [difficulty, playerCount, initializePlayers, gameTheme, isOnline, setGamePhaseWithCleanup]);
 
   // Start game with player names
   const handleStartGame = (names) => {
@@ -481,7 +507,7 @@ const App = () => {
           // Check if game is over
           if (matchedPairs.length + 1 === characters.length) {
             setTimeout(() => {
-              setGamePhase("game_over");
+              setGamePhaseWithCleanup("game_over");
             }, 1500);
           }
         } else {
@@ -505,7 +531,8 @@ const App = () => {
       playerMoves,
       playerScores,
       switchPlayer,
-      multiplayerData.roomId
+      multiplayerData.roomId,
+      setGamePhaseWithCleanup
     ]
   );
 
@@ -525,10 +552,10 @@ const App = () => {
   const handleOnlineSelect = (online) => {
     setIsOnline(online);
     if (online) {
-      setGamePhase("online_lobby");
+      setGamePhaseWithCleanup("online_lobby");
     } else {
       // For local play, go directly to player selection (which now includes difficulty)
-      setGamePhase("player_select");
+      setGamePhaseWithCleanup("player_select");
     }
   };
 
@@ -583,7 +610,7 @@ const App = () => {
               setDifficulty={setDifficulty} // Add this prop
               playerCount={playerCount}
               handlePlayerCountSelect={handlePlayerCountSelect}
-              setGamePhase={setGamePhase}
+              setGamePhase={setGamePhaseWithCleanup}
               handleStartGame={handleStartGame}
               playerNames={playerNames}
               setPlayerNames={setPlayerNames}
@@ -602,7 +629,7 @@ const App = () => {
           >
             <OnlineLobby
               gameTheme={gameTheme}
-              setGamePhase={setGamePhase}
+              setGamePhase={setGamePhaseWithCleanup}
               setMultiplayerData={setMultiplayerData}
               difficulty={difficulty}
               setDifficulty={setDifficulty}
@@ -621,7 +648,7 @@ const App = () => {
             >
               <WaitingRoom
                 multiplayerData={multiplayerData}
-                setGamePhase={setGamePhase}
+                setGamePhase={setGamePhaseWithCleanup}
                 gameTheme={gameTheme}
                 setGameTheme={setGameTheme}
                 difficulty={difficulty}
@@ -678,7 +705,7 @@ const App = () => {
               showPlayerTurn={showPlayerTurn}
               initializeGame={initializeGame}
               characters={characters}
-              setGamePhase={setGamePhase}
+              setGamePhase={setGamePhaseWithCleanup}
               playerNames={playerNames}
               gameTheme={gameTheme}
               setGameTheme={setGameTheme}
@@ -702,8 +729,8 @@ const App = () => {
               moves={moves}
               playerCount={playerCount}
               playerScores={playerScores}
-              initializeGame={isOnline ? () => setGamePhase("waiting_room") : initializeGame}
-              setGamePhase={setGamePhase}
+              initializeGame={isOnline ? () => setGamePhaseWithCleanup("waiting_room") : initializeGame}
+              setGamePhase={setGamePhaseWithCleanup}
               playerNames={playerNames}
               gameTheme={gameTheme}
               isOnline={isOnline}

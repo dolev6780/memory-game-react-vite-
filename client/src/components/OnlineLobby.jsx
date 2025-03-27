@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import socketService from "../services/socketService";
+import useSocket from "../hooks/useSocket";
 
 const OnlineLobby = ({ 
   gameTheme, 
@@ -21,6 +21,9 @@ const OnlineLobby = ({
   
   // Create a ref to store playerName value without affecting dependencies
   const playerNameRef = useRef("");
+  
+  // Initialize the socket hook with a unique component ID
+  const socket = useSocket("OnlineLobby", true);
   
   // Keep the ref updated with current playerName
   useEffect(() => {
@@ -60,62 +63,39 @@ const OnlineLobby = ({
   };
 
   const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
-
-  // Clean up listeners - using a function outside of a hook to avoid dependency issues
-  const cleanupSocketListeners = useCallback(() => {
-    socketService.on("roomList", null);
-    socketService.on("roomCreated", null);
-    socketService.on("roomJoined", null);
-    socketService.on("roomError", null);
-    socketService.on("connect", null);
-    socketService.on("connect_error", null);
-  }, []);
-
-  // Reset state function - IMPORTANT: must be defined before any function that uses it
-  const resetState = useCallback(() => {
-    // Reset all relevant state in OnlineLobby
-    setPlayerName("");
-    setRoomCode("");
-    setTab("join");
-    setError("");
-    setIsLoading(false);
-    setAvailableRooms([]);
-    setConnectionAttempts(0);
-    
-    // Reset the ref value
-    playerNameRef.current = "";
-
-    // Clean up socket listeners
-    cleanupSocketListeners();
-    
-    // Optionally disconnect socket if you want to fully reset connections
-    // socketService.disconnect();
-  }, [cleanupSocketListeners]);
-
-  // Function to load rooms - no dependencies
-  const loadRoomsBase = useCallback(() => {
+  
+  // Function to load rooms
+  const loadRooms = useCallback(() => {
     setIsLoading(true);
     setError("");
     
-    if (socketService.isConnected()) {
-      socketService.getRooms();
+    if (socket.isConnected()) {
+      socket.getRooms();
     } else {
-      setIsLoading(false);
-      setError("Could not connect to server");
+      socket.connect();
+      setTimeout(() => {
+        if (socket.isConnected()) {
+          socket.getRooms();
+        } else {
+          setIsLoading(false);
+          setError("Could not connect to server");
+        }
+      }, 1000);
     }
-  }, []);
+  }, [socket]);
 
-  // Setup socket event listeners - now using playerNameRef instead of playerName
-  const setupSocketListeners = useCallback(() => {
-    socketService.on("connect", () => {
-      console.log("Connected to socket server");
+  // Set up event listeners
+  useEffect(() => {
+    // Connection events
+    socket.addEventListener("connect", () => {
+      console.log("Connected to socket server in OnlineLobby");
       setIsConnected(true);
       setIsLoading(false);
-      loadRoomsBase();
+      loadRooms();
     });
     
-    socketService.on("connect_error", (error) => {
-      console.error("Connection error:", error);
+    socket.addEventListener("connect_error", (error) => {
+      console.error("Connection error in OnlineLobby:", error);
       setIsConnected(false);
       setIsLoading(false);
       setError("Could not connect to server. Retrying...");
@@ -127,8 +107,8 @@ const OnlineLobby = ({
       }
     });
     
-    socketService.on("roomList", (data) => {
-      console.log("Room list received:", data);
+    socket.addEventListener("roomList", (data) => {
+      console.log("Room list received in OnlineLobby");
       
       const filteredRooms = data.rooms.filter(room => 
         room.gameTheme === gameTheme
@@ -140,8 +120,8 @@ const OnlineLobby = ({
       setIsLoading(false);
     });
     
-    socketService.on("roomCreated", (roomData) => {
-      console.log("Room created:", roomData);
+    socket.addEventListener("roomCreated", (roomData) => {
+      console.log("Room created in OnlineLobby:", roomData);
       setIsLoading(false);
       
       setMultiplayerData({
@@ -155,8 +135,8 @@ const OnlineLobby = ({
       setGamePhase("waiting_room");
     });
     
-    socketService.on("roomJoined", (roomData) => {
-      console.log("Room joined:", roomData);
+    socket.addEventListener("roomJoined", (roomData) => {
+      console.log("Room joined in OnlineLobby:", roomData);
       setIsLoading(false);
       
       if (roomData.gameTheme && roomData.gameTheme !== gameTheme) {
@@ -177,8 +157,8 @@ const OnlineLobby = ({
       }, 100);
     });
     
-    socketService.on("roomError", (data) => {
-      console.error("Room error:", data);
+    socket.addEventListener("roomError", (data) => {
+      console.error("Room error in OnlineLobby:", data);
       setIsLoading(false);
       
       // Handle theme compatibility error specifically
@@ -192,44 +172,18 @@ const OnlineLobby = ({
         setError("");
       }, 3000);
     });
-  }, [connectionAttempts, gameTheme, setGamePhase, setMultiplayerData, setGameTheme, loadRoomsBase]);
+  }, [socket, loadRooms, connectionAttempts, gameTheme, setGamePhase, setMultiplayerData, setGameTheme]);
 
-  // Connect to socket with useCallback
-  const connectSocket = useCallback(() => {
-    socketService.connect();
-    setIsLoading(true);
-    
-    // Clear any existing listeners first
-    cleanupSocketListeners();
-    
-    // Setup listeners
-    setupSocketListeners();
-  }, [cleanupSocketListeners, setupSocketListeners]);
-
-  // Ensure socket connection and setup event listeners when component mounts
+  // Check connection status on mount
   useEffect(() => {
-    // Connect to socket server
-    connectSocket();
-
-    return () => {
-      // Clean up listeners but keep connection
-      cleanupSocketListeners();
-    };
-  }, [connectSocket, cleanupSocketListeners]);
-
-  // Wrap loadRooms in useCallback
-  const loadRooms = useCallback(() => {
-    if (!socketService.isConnected()) {
-      connectSocket();
-      setTimeout(() => {
-        loadRoomsBase();
-      }, 1000);
-    } else {
-      loadRoomsBase();
+    setIsConnected(socket.isConnected());
+    
+    if (!socket.isConnected()) {
+      socket.connect();
     }
-  }, [connectSocket, loadRoomsBase]);
+  }, [socket]);
 
-  // Updated handleCreateRoom to use playerNameRef instead of playerName
+  // Updated handleCreateRoom to use playerNameRef
   const handleCreateRoom = useCallback(() => {
     // Get current value from ref
     const currentName = playerNameRef.current.trim();
@@ -242,30 +196,14 @@ const OnlineLobby = ({
     setIsLoading(true);
     setError("");
     
-    if (!socketService.isConnected()) {
-      connectSocket();
-      setTimeout(() => {
-        if (socketService.isConnected()) {
-          socketService.createRoom({ 
-            playerName: currentName, 
-            difficulty, 
-            gameTheme 
-          });
-        } else {
-          setIsLoading(false);
-          setError("Could not connect to server");
-        }
-      }, 1000);
-    } else {
-      socketService.createRoom({ 
-        playerName: currentName, 
-        difficulty, 
-        gameTheme 
-      });
-    }
-  }, [difficulty, gameTheme, connectSocket, setError]);
+    socket.createRoom({ 
+      playerName: currentName, 
+      difficulty, 
+      gameTheme 
+    });
+  }, [socket, difficulty, gameTheme]);
 
-  // Updated handleJoinRoom to use playerNameRef instead of playerName
+  // Updated handleJoinRoom to use playerNameRef
   const handleJoinRoom = useCallback((roomId, roomTheme) => {
     // Get current value from ref
     const currentName = playerNameRef.current.trim();
@@ -284,30 +222,14 @@ const OnlineLobby = ({
     setIsLoading(true);
     setError("");
     
-    if (!socketService.isConnected()) {
-      connectSocket();
-      setTimeout(() => {
-        if (socketService.isConnected()) {
-          socketService.joinRoom({ 
-            roomId, 
-            playerName: currentName, 
-            gameTheme 
-          });
-        } else {
-          setIsLoading(false);
-          setError("Could not connect to server");
-        }
-      }, 1000);
-    } else {
-      socketService.joinRoom({ 
-        roomId, 
-        playerName: currentName, 
-        gameTheme 
-      });
-    }
-  }, [gameTheme, connectSocket, setError]);
+    socket.joinRoom({ 
+      roomId, 
+      playerName: currentName, 
+      gameTheme 
+    });
+  }, [socket, gameTheme]);
   
-  // Updated handleJoinByCode to use playerNameRef instead of playerName and check theme
+  // Handle joining by room code
   const handleJoinByCode = useCallback(() => {
     // Get current value from ref
     const currentName = playerNameRef.current.trim();
@@ -326,42 +248,24 @@ const OnlineLobby = ({
     setError("");
     
     // First check if the room exists and has a compatible theme
-    if (socketService.isConnected()) {
-      // Check available rooms first (if any exist)
-      const matchingRoom = availableRooms.find(room => 
-        room.roomId.toUpperCase() === roomCode.trim().toUpperCase()
-      );
-      
-      // If we found the room in available rooms, check theme compatibility
-      if (matchingRoom && matchingRoom.gameTheme && matchingRoom.gameTheme !== gameTheme) {
-        setIsLoading(false);
-        setError(`Cannot join room with different theme (${matchingRoom.gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}). Your current theme is ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}.`);
-        return;
-      }
-      
-      // Proceed with join if theme is compatible or room wasn't found in list
-      socketService.joinRoom({ 
-        roomId: roomCode.trim().toUpperCase(), 
-        playerName: currentName,
-        gameTheme 
-      });
-    } else {
-      // Try to connect first
-      connectSocket();
-      setTimeout(() => {
-        if (socketService.isConnected()) {
-          socketService.joinRoom({ 
-            roomId: roomCode.trim().toUpperCase(), 
-            playerName: currentName,
-            gameTheme 
-          });
-        } else {
-          setIsLoading(false);
-          setError("Could not connect to server");
-        }
-      }, 1000);
+    const matchingRoom = availableRooms.find(room => 
+      room.roomId.toUpperCase() === roomCode.trim().toUpperCase()
+    );
+    
+    // If we found the room in available rooms, check theme compatibility
+    if (matchingRoom && matchingRoom.gameTheme && matchingRoom.gameTheme !== gameTheme) {
+      setIsLoading(false);
+      setError(`Cannot join room with different theme (${matchingRoom.gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}). Your current theme is ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}.`);
+      return;
     }
-  }, [roomCode, connectSocket, setError, gameTheme, availableRooms]);
+    
+    // Proceed with join
+    socket.joinRoom({ 
+      roomId: roomCode.trim().toUpperCase(), 
+      playerName: currentName,
+      gameTheme 
+    });
+  }, [socket, roomCode, gameTheme, availableRooms]);
 
   // Add room theme indicator function
   const getRoomThemeIndicator = useCallback((roomTheme) => {
@@ -372,6 +276,13 @@ const OnlineLobby = ({
       </span>
     );
   }, []);
+
+  // Handle back to menu
+  const handleBackToMenu = useCallback(() => {
+    // Reset socket state
+    socket.resetState();
+    setGamePhase("intro");
+  }, [socket, setGamePhase]);
 
   return (
     <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden`}>
@@ -401,7 +312,7 @@ const OnlineLobby = ({
           <div className="mb-4 py-2 px-3 bg-yellow-600/30 border border-yellow-600 text-yellow-200 rounded-lg text-sm">
             Not connected to server. 
             <button 
-              onClick={connectSocket} 
+              onClick={() => socket.connect()} 
               className="ml-2 underline hover:text-white"
             >
               Retry
@@ -582,7 +493,7 @@ const OnlineLobby = ({
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`w-full bg-gradient-to-r ${currentTheme.buttonGradient} py-3 rounded-lg text-white font-medium text-lg`}
+                className={`w-full mt-4 bg-gradient-to-r ${currentTheme.buttonGradient} py-3 rounded-lg text-white font-medium text-lg`}
                 onClick={handleCreateRoom}
                 disabled={isLoading}
               >
@@ -598,10 +509,7 @@ const OnlineLobby = ({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="text-gray-300 hover:text-white"
-            onClick={() => {
-              resetState();
-              setGamePhase("intro");
-            }}
+            onClick={handleBackToMenu}
           >
             Back to Menu
           </motion.button>
