@@ -76,6 +76,9 @@ const useSocket = (componentId, autoConnect = false) => {
     leaveRoom: socketService.leaveRoom.bind(socketService),
     getRooms: socketService.getRooms.bind(socketService),
     
+    // Add the new requestPlayerList method
+    requestPlayerList: socketService.requestPlayerList.bind(socketService),
+    
     // Game actions
     startGame: socketService.startGame.bind(socketService),
     cardClick: socketService.cardClick.bind(socketService),

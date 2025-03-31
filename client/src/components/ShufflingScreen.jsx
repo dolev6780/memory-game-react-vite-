@@ -1,7 +1,14 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { getText } from "../themeConfig"; // Import the getText function
 
-const ShufflingScreen = ({ characters, shuffling, styles, gameTheme = "dragonball" }) => {
+const ShufflingScreen = ({ 
+  characters, 
+  shuffling, 
+  styles, 
+  gameTheme = "dragonball",
+  language = "en" // Add language prop with default value
+}) => {
   // Define theme-specific styles
   const themeStyles = {
     dragonball: {
@@ -12,7 +19,7 @@ const ShufflingScreen = ({ characters, shuffling, styles, gameTheme = "dragonbal
       cardBorder: "2px solid #e65100",
       circleBg: "bg-orange-600",
       textColor: "text-white",
-      initials: "DB"
+      initials: getText(gameTheme, language, "cardInitials") || "DB"
     },
     pokemon: {
       container: "bg-blue-950/80 border-blue-800/50",
@@ -22,7 +29,7 @@ const ShufflingScreen = ({ characters, shuffling, styles, gameTheme = "dragonbal
       cardBorder: "2px solid #1e40af",
       circleBg: "bg-yellow-500",
       textColor: "text-blue-900",
-      initials: "PK"
+      initials: getText(gameTheme, language, "cardInitials") || "PK"
     }
   };
 
@@ -51,6 +58,11 @@ const ShufflingScreen = ({ characters, shuffling, styles, gameTheme = "dragonbal
     },
   };
 
+  // Get the theme name for display
+  const themeName = gameTheme === "dragonball" ? 
+    getText(gameTheme, language, "themeTitle") : 
+    getText("pokemon", language, "themeTitle");
+
   return (
     <div className={`flex flex-col items-center justify-center p-4 ${currentTheme.container} rounded-xl backdrop-blur-md shadow-2xl border`}>
       <motion.h2
@@ -65,7 +77,7 @@ const ShufflingScreen = ({ characters, shuffling, styles, gameTheme = "dragonbal
           repeatType: "reverse",
         }}
       >
-        Shuffling Cards...
+        {getText(gameTheme, language, "shufflingText", null) || "Shuffling Cards..."}
       </motion.h2>
 
       <div style={styles.container}>
@@ -114,7 +126,7 @@ const ShufflingScreen = ({ characters, shuffling, styles, gameTheme = "dragonbal
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
       >
-        Preparing an exciting {gameTheme === "dragonball" ? "Dragon Ball" : "Pokémon"} memory challenge...
+        {getText(gameTheme, language, "shufflingText", null) || `Preparing an exciting ${themeName} memory challenge...`}
       </motion.div>
     </div>
   );

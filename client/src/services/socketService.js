@@ -1,8 +1,9 @@
-// src/services/socketService.js - With backward compatibility layer
+// src/services/socketService.js - With enhanced online multiplayer support
 import { io } from "socket.io-client";
 
 // The URL of your Socket.io server
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://memory-game-server-rult.onrender.com";
+// Update with your actual server URL for production
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://memory-game-server.onrender.com";
 class SocketService {
   constructor() {
     this.socket = null;
@@ -12,6 +13,7 @@ class SocketService {
     this.difficulty = null;
     this.layoutConfig = null;
     this.connecting = false;
+    this.gameTime = 0; // Track current game time for sync
     
     // Mapping of event names to arrays of callback functions
     this.eventListeners = new Map();
@@ -166,6 +168,13 @@ class SocketService {
       this.notifyListeners("newMessage", data);
       if (this.legacyCallbacks["newMessage"]) this.legacyCallbacks["newMessage"](data);
     });
+
+    // Player list event
+    this.socket.on("playerList", (data) => {
+      console.log("Received player list:", data);
+      this.notifyListeners("playerList", data);
+      if (this.legacyCallbacks["playerList"]) this.legacyCallbacks["playerList"](data);
+    });
   }
   
   /**
@@ -177,7 +186,10 @@ class SocketService {
     
     // Game started event
     this.socket.on("gameStarted", (data) => {
-      console.log("Game started event received");
+      console.log("Game started event received in socket service");
+      
+      // Reset game time for new game
+      this.gameTime = 0;
       
       // Store the game theme from the server
       if (data.gameTheme) {
@@ -197,13 +209,24 @@ class SocketService {
         this.layoutConfig = data.layoutConfig;
       }
       
-      // Ensure all cards have theme information
-      if (data.gameState && data.gameState.cards && this.gameTheme) {
-        data.gameState.cards = data.gameState.cards.map(card => ({
-          ...card,
-          cardTheme: data.gameTheme || this.gameTheme
-        }));
+      // Ensure all game state data is preserved
+      if (data.gameState) {
+        // Make sure matchedBy is included if it exists
+        if (!data.gameState.matchedBy) {
+          data.gameState.matchedBy = {};
+        }
+        
+        // Ensure all cards have theme information
+        if (data.gameState.cards && this.gameTheme) {
+          data.gameState.cards = data.gameState.cards.map(card => ({
+            ...card,
+            cardTheme: card.cardTheme || data.gameTheme || this.gameTheme
+          }));
+        }
       }
+      
+      // Log the state to help diagnose issues
+      console.log("Game state sent to clients:", data.gameState);
       
       this.notifyListeners("gameStarted", data);
       if (this.legacyCallbacks["gameStarted"]) this.legacyCallbacks["gameStarted"](data);
@@ -211,6 +234,16 @@ class SocketService {
     
     // Card flipped event
     this.socket.on("cardFlipped", (data) => {
+      // Update game time if provided
+      if (data.gameTime !== undefined) {
+        this.gameTime = data.gameTime;
+      }
+      
+      // Ensure matchedBy data is preserved
+      if (data.gameState && !data.gameState.matchedBy) {
+        data.gameState.matchedBy = {};
+      }
+      
       // Ensure all cards have theme information
       if (data.gameState && data.gameState.cards && this.gameTheme) {
         data.gameState.cards = data.gameState.cards.map(card => ({
@@ -218,6 +251,9 @@ class SocketService {
           cardTheme: card.cardTheme || this.gameTheme
         }));
       }
+      
+      // Add gameTime to the data for components
+      data.gameTime = this.gameTime;
       
       this.notifyListeners("cardFlipped", data);
       if (this.legacyCallbacks["cardFlipped"]) this.legacyCallbacks["cardFlipped"](data);
@@ -225,6 +261,16 @@ class SocketService {
     
     // Turn update event
     this.socket.on("turnUpdate", (data) => {
+      // Update game time if provided
+      if (data.gameTime !== undefined) {
+        this.gameTime = data.gameTime;
+      }
+      
+      // Ensure matchedBy data is preserved
+      if (data.gameState && !data.gameState.matchedBy) {
+        data.gameState.matchedBy = {};
+      }
+      
       // Ensure all cards have theme information
       if (data.gameState && data.gameState.cards && this.gameTheme) {
         data.gameState.cards = data.gameState.cards.map(card => ({
@@ -233,18 +279,49 @@ class SocketService {
         }));
       }
       
+      // Add gameTime to the data for components
+      data.gameTime = this.gameTime;
+      
       this.notifyListeners("turnUpdate", data);
       if (this.legacyCallbacks["turnUpdate"]) this.legacyCallbacks["turnUpdate"](data);
     });
     
     // Game over event
     this.socket.on("gameOver", (data) => {
+      // Update final game time if provided
+      if (data.gameTime !== undefined) {
+        console.log("Receiving final game time:", data.gameTime);
+        this.gameTime = data.gameTime;
+      }
+      
+      // Ensure matchedBy data is preserved
+      if (data.gameState && !data.gameState.matchedBy) {
+        data.gameState.matchedBy = {};
+      }
+      
+      // Add gameTime to the data for components
+      data.gameTime = this.gameTime;
+      
       this.notifyListeners("gameOver", data);
       if (this.legacyCallbacks["gameOver"]) this.legacyCallbacks["gameOver"](data);
     });
     
     // Game reset event
     this.socket.on("gameReset", (data) => {
+      // Reset game time
+      this.gameTime = 0;
+      
+      console.log("Game reset event received in socket service", data);
+      
+      // Make sure we update theme and difficulty from server
+      if (data.gameTheme) {
+        this.gameTheme = data.gameTheme;
+      }
+      
+      if (data.difficulty) {
+        this.difficulty = data.difficulty;
+      }
+      
       this.notifyListeners("gameReset", data);
       if (this.legacyCallbacks["gameReset"]) this.legacyCallbacks["gameReset"](data);
     });
@@ -314,6 +391,7 @@ class SocketService {
     this.gameTheme = null;
     this.difficulty = null;
     this.layoutConfig = null;
+    this.gameTime = 0;
     
     // Clear all event listeners except basic connection ones
     const connectListeners = this.eventListeners.get("connect") || [];
@@ -518,6 +596,7 @@ class SocketService {
     
     // Reset room-related state
     this.roomId = null;
+    this.gameTime = 0;
   }
   
   /**
@@ -532,7 +611,8 @@ class SocketService {
         ...data,
         gameTheme: this.gameTheme || data.gameTheme,
         difficulty: this.difficulty || data.difficulty,
-        layoutConfig: data.layoutConfig // Include the layout configuration
+        layoutConfig: data.layoutConfig, // Include the layout configuration
+        gameTime: 0 // Reset game time
       };
       
       // Ensure all cards have theme information
@@ -553,10 +633,22 @@ class SocketService {
    */
   cardClick(data) {
     if (this.socket && this.connected) {
+      if (data.gameTime && typeof data.gameTime === 'number') {
+        this.gameTime = data.gameTime;
+      }
+      // Log what we're sending to server
+      console.log("Sending card click to server:", {
+        ...data,
+        gameTheme: this.gameTheme,
+        difficulty: this.difficulty,
+        gameTime: this.gameTime
+      });
+      
       this.socket.emit("cardClick", {
         ...data,
         gameTheme: this.gameTheme, // Always include theme when clicking cards
-        difficulty: this.difficulty // Include difficulty
+        difficulty: this.difficulty, // Include difficulty
+        gameTime: this.gameTime // Include current game time for synchronization
       });
     }
   }
@@ -568,11 +660,32 @@ class SocketService {
   playAgain(data) {
     console.log("Playing again:", data);
     if (this.socket && this.connected) {
+      // Reset game time
+      this.gameTime = 0;
+      
+      // Send the playAgain event with complete information
       this.socket.emit("playAgain", {
         ...data,
         gameTheme: this.gameTheme, // Include theme when playing again
-        difficulty: this.difficulty // Include difficulty
+        difficulty: this.difficulty, // Include difficulty
+        gameTime: 0 // Reset game time
       });
+      
+      // Request the current player list after a short delay to ensure server has processed the playAgain event
+      setTimeout(() => {
+        this.requestPlayerList({ roomId: data.roomId });
+      }, 500);
+    }
+  }
+
+  /**
+   * Request the current player list for a room
+   * @param {Object} data - Room data
+   */
+  requestPlayerList(data) {
+    console.log("Requesting player list for room:", data.roomId);
+    if (this.socket && this.connected) {
+      this.socket.emit("requestPlayerList", data);
     }
   }
   
@@ -606,6 +719,17 @@ class SocketService {
     
     this.socket.emit("getRooms");
   }
+
+  /**
+ * Sync game time with the server (host only)
+ * @param {Object} data - Game time data
+ */
+syncGameTime(data) {
+  if (this.socket && this.connected) {
+    this.socket.emit("syncGameTime", data);
+  }
+}
+
   
   /**
    * Get the current game theme
@@ -630,7 +754,27 @@ class SocketService {
   getLayoutConfig() {
     return this.layoutConfig;
   }
+  
+  /**
+   * Get the current game time
+   * @returns {number} - Current game time in seconds
+   */
+  getGameTime() {
+    return this.gameTime;
+  }
+  
+  /**
+   * Update the game time
+   * @param {number} time - New game time in seconds
+   */
+  updateGameTime(time) {
+    if (typeof time === 'number' && time >= 0) {
+      this.gameTime = time;
+    }
+  }
 }
+
+
 
 // Create singleton instance
 const socketService = new SocketService();

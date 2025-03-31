@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { motion } from "framer-motion";
+import { getText } from "../themeConfig";
+import GameTimer from "./GameTimer";
 
 const GameHeader = ({
   difficulty,
-  moves,
   matchedPairs,
   characters,
   playerCount,
@@ -14,7 +15,12 @@ const GameHeader = ({
   playerNames = [],
   gameTheme = "dragonball",
   isOnline = false,
-  roomId = null
+  roomId = null,
+  language = "en",
+  timerActive = false,
+  timerResetKey = 0,
+  onTimeUpdate = null,
+  matchedBy = {}
 }) => {
   // Define theme-specific styles
   const themeStyles = {
@@ -27,7 +33,8 @@ const GameHeader = ({
       buttonBg: "bg-gray-800",
       buttonText: "text-gray-100",
       onlineIndicator: "text-orange-400",
-      roomCode: "bg-orange-900/50"
+      roomCode: "bg-orange-900/50",
+      scoreBox: "bg-orange-900/50 border-orange-500/50"
     },
     pokemon: {
       difficultyText: "text-blue-400",
@@ -38,12 +45,24 @@ const GameHeader = ({
       buttonBg: "bg-blue-900",
       buttonText: "text-gray-100",
       onlineIndicator: "text-blue-400",
-      roomCode: "bg-blue-900/50"
+      roomCode: "bg-blue-900/50",
+      scoreBox: "bg-blue-900/50 border-blue-500/50"
     }
   };
 
   // Get current theme styles
   const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+
+  // Debug log playerScores to see what we're getting in online mode
+  useEffect(() => {
+    if (isOnline) {
+      console.log("GameHeader - Online Mode");
+      console.log("PlayerScores:", playerScores);
+      console.log("MatchedBy:", matchedBy);
+      console.log("PlayerNames:", playerNames);
+      console.log("Player Count:", playerCount);
+    }
+  }, [isOnline, playerScores, matchedBy, playerNames, playerCount]);
 
   // Create a restart handler
   const handleRestart = () => {
@@ -61,93 +80,181 @@ const GameHeader = ({
     }
   };
 
+  // Ensure player names are properly handled
+  const getPlayerName = (index) => {
+    // Make sure the playerNames array is valid and contains the index
+    if (Array.isArray(playerNames) && index >= 0 && index < playerNames.length && playerNames[index]) {
+      return playerNames[index];
+    }
+    
+    // Fallback to localized default
+    return language === "en" ? 
+      `Player ${index + 1}` : 
+      `שחקן ${index + 1}`;
+  };
+
+  // Get player display data - WITH STRONG FOCUS ON ONLINE MODE
+  const getPlayerData = () => {
+    // For online mode, ALWAYS use playerScores from the server
+    if (isOnline && Array.isArray(playerScores) && playerScores.length > 0) {
+      console.log("Using online player scores:", playerScores);
+      return playerScores.map((player, idx) => {
+        // Get player name - either from player object or from playerNames array
+        const name = player.name || 
+                    (playerNames[idx] || 
+                    (language === "en" ? `Player ${idx + 1}` : `שחקן ${idx + 1}`));
+        
+        // Make sure score is a number, defaulting to 0 if undefined
+        const score = typeof player.score === 'number' ? player.score : 0;
+        
+        return {
+          id: player.id !== undefined ? player.id : idx,
+          index: idx,
+          name: name,
+          score: score
+        };
+      });
+    }
+    
+    // For local mode, fall back to counting from matchedBy
+    // Initialize counts for all players
+    const counts = Array(playerCount).fill(0).map((_, i) => ({
+      id: i,
+      index: i,
+      name: getPlayerName(i),
+      score: 0
+    }));
+    
+    // Count matches from matchedBy
+    if (matchedBy && typeof matchedBy === 'object') {
+      Object.values(matchedBy).forEach(playerIndex => {
+        if (playerIndex >= 0 && playerIndex < counts.length) {
+          counts[playerIndex].score += 1;
+        }
+      });
+    }
+    
+    return counts;
+  };
+
+  // Get player data
+  const playerData = getPlayerData();
+  
+  // Debug the player data
+  console.log("Final player data for display:", playerData);
+
   return (
     <div className="w-full mb-2 sm:mb-4">
-      <div className="flex flex-wrap justify-between items-center">
+      <div className="flex flex-wrap justify-between items-start">
         {/* Game info */}
         <div className="flex flex-col mb-2 sm:mb-0">
-          <div className="flex items-center">
-            <div className={`text-xs sm:text-sm font-medium ${currentTheme.difficultyText}`}>
-              {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Difficulty
+           {/* Controls */}
+        <div className="flex gap-2">
+          <motion.button
+            onClick={handleHome}
+            className={`px-2 py-1 ${currentTheme.buttonBg} ${currentTheme.buttonText} text-sm rounded-lg shadow-md`}
+            whileHover={{ scale: 1.05, backgroundColor: currentTheme.buttonHover }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {isOnline ? getText(gameTheme, language, "lobby") : getText(gameTheme, language, "home")}
+          </motion.button>
+          <motion.button
+            onClick={handleRestart}
+            className={`px-2 py-1 ${currentTheme.buttonBg} ${currentTheme.buttonText} text-sm rounded-lg shadow-md`}
+            whileHover={{ scale: 1.05, backgroundColor: currentTheme.buttonHover }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {isOnline ? getText(gameTheme, language, "return") : getText(gameTheme, language, "restart")}
+          </motion.button>
+        </div>
+            <div className={`text-xs sm:text-sm font-medium ${currentTheme.difficultyText} py-1`}>
+              {getText(gameTheme, language, "difficulty")} <span className={`${difficulty === "hard" ? "bg-red-600" : difficulty === "medium" ? "bg-orange-600" : "bg-green-600"} py-0.5 px-1 rounded-lg` }> {getText(gameTheme, language, difficulty, "common")}</span>
             </div>
+          <div className="flex items-center justify-center">
             
-            {/* Online indicator */}
-            {isOnline && (
+           {/* Online indicator */}
+           {isOnline && (
               <div className={`ml-2 text-xs px-2 py-0.5 rounded-full ${currentTheme.roomCode} ${currentTheme.onlineIndicator}`}>
-                ONLINE
+                {getText(gameTheme, language, "online")}
               </div>
             )}
-          </div>
-          
-          {/* Room code if online */}
+              {/* Room code if online */}
           {isOnline && roomId && (
             <div className={`text-xs ${currentTheme.onlineIndicator} font-mono`}>
-              Room: {roomId}
+              {getText(gameTheme, language, "room")}: {roomId}
             </div>
           )}
-          
-          <div className={`text-xs ${currentTheme.statsText}`}>
-            {matchedPairs.length} / {characters?.length || 0} Pairs Found
           </div>
-          <div className={`text-xs ${currentTheme.statsText}`}>
-            {moves} Moves
+          {/* Timer */}
+          <div className="mt-1">
+            <GameTimer 
+              gameTheme={gameTheme}
+              language={language}
+              isActive={timerActive}
+              resetKey={timerResetKey}
+              onTimeUpdate={onTimeUpdate}
+              size="small"
+              isOnline={isOnline}
+            />
           </div>
         </div>
 
-        {/* Player scores for multiplayer */}
-        {playerCount > 1 && (
-          <div className="flex gap-2 flex-wrap justify-center mb-2 sm:mb-0">
-            {playerScores.map((player, index) => (
-              <motion.div
-                key={index}
-                className={`px-2 py-1 rounded-lg text-xs flex flex-col items-center ${
-                  index === currentPlayer
-                    ? `bg-gradient-to-r ${currentTheme.currentPlayerGradient} text-white`
-                    : "bg-gray-800 text-gray-300"
-                }`}
-                animate={
-                  index === currentPlayer
-                    ? {
-                        scale: [1, 1.05, 1],
-                        transition: { duration: 1, repeat: Infinity }
-                      }
-                    : {}
-                }
-              >
-                <span className="font-bold">
-                  {playerNames[index] || `Player ${index + 1}`}
-                </span>
-                <span>{player.score} pairs</span>
-              </motion.div>
-            ))}
+        {/* Matches Found by Each Player */}
+        {/* Force display for multiplayer games by checking if playerData.length > 1 instead of playerCount */}
+        {playerData.length > 1 && (
+          <div className={`flex flex-col p-2 rounded-lg ${currentTheme.scoreBox} backdrop-blur-sm mb-2 sm:mb-0`}>
+            <div className={`text-xs font-medium mb-1 ${currentTheme.difficultyText} text-center`}>
+              {getText(gameTheme, language, "matchedBy")}
+            </div>
+            <div className="grid grid-cols-1 gap-1">
+              {playerData.map((player) => (
+                <motion.div
+                  key={`player-${player.id}-${player.index}`}
+                  className={`px-2 py-1 rounded-lg text-xs flex justify-between items-center ${
+                    player.index === currentPlayer
+                      ? `bg-gradient-to-r ${currentTheme.currentPlayerGradient} text-white`
+                      : "bg-gray-800/60 text-gray-300"
+                  }`}
+                  animate={
+                    player.index === currentPlayer
+                      ? {
+                          scale: [1, 1.05, 1],
+                          transition: { duration: 1, repeat: Infinity }
+                        }
+                      : {}
+                  }
+                >
+                  <div className="flex items-center">
+                    <div className="font-bold mr-1">
+                      {player.name}:
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black/30 font-mono font-bold text-base">
+                      {player.score}
+                    </span>
+                    <span className="mr-1 text-xs">
+                      {language === "en" ? "pairs" : "זוגות"}
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            
+            {/* Total matches found */}
+            <div className="text-xs text-center mt-1 text-gray-300">
+              {matchedPairs.length} / {characters?.length || 0} {language === "en" ? "total" : "סה״כ"}
+            </div>
           </div>
         )}
 
-        {/* Controls */}
-        <div className="flex gap-2">
-          <motion.button
-            onClick={handleRestart}
-            className={`px-2 py-1 ${currentTheme.buttonBg} ${currentTheme.buttonText} text-xs rounded-lg shadow-md`}
-            whileHover={{ scale: 1.05, backgroundColor: currentTheme.buttonHover }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {isOnline ? "Return" : "Restart"}
-          </motion.button>
-          <motion.button
-            onClick={handleHome}
-            className={`px-2 py-1 ${currentTheme.buttonBg} ${currentTheme.buttonText} text-xs rounded-lg shadow-md`}
-            whileHover={{ scale: 1.05, backgroundColor: currentTheme.buttonHover }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {isOnline ? "Lobby" : "Home"}
-          </motion.button>
-        </div>
+       
       </div>
 
       {/* Show current player in single player mode */}
       {playerCount === 1 && (
         <div className={`mt-2 text-xs font-medium text-center ${currentTheme.statsText}`}>
-          Player: {playerNames[0] || "Player 1"}
+          {getText(gameTheme, language, "player")}: {getPlayerName(0)}
         </div>
       )}
     </div>

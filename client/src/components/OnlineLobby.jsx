@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useSocket from "../hooks/useSocket";
+import { getText } from "../themeConfig"; // Import getText for translations
 
 const OnlineLobby = ({ 
   gameTheme, 
@@ -8,7 +9,9 @@ const OnlineLobby = ({
   setDifficulty, 
   setGamePhase, 
   setMultiplayerData,
-  setGameTheme
+  setGameTheme,
+  language = "en", // Add language prop with default
+  toggleLanguage // Add toggleLanguage function prop
 }) => {
   const [tab, setTab] = useState("join");
   const [playerName, setPlayerName] = useState("");
@@ -78,11 +81,11 @@ const OnlineLobby = ({
           socket.getRooms();
         } else {
           setIsLoading(false);
-          setError("Could not connect to server");
+          setError(language === "en" ? "Could not connect to server" : "לא ניתן להתחבר לשרת");
         }
       }, 1000);
     }
-  }, [socket]);
+  }, [socket, language]);
 
   // Set up event listeners
   useEffect(() => {
@@ -98,7 +101,7 @@ const OnlineLobby = ({
       console.error("Connection error in OnlineLobby:", error);
       setIsConnected(false);
       setIsLoading(false);
-      setError("Could not connect to server. Retrying...");
+      setError(language === "en" ? "Could not connect to server. Retrying..." : "לא ניתן להתחבר לשרת. מנסה שוב...");
       
       if (connectionAttempts < 3) {
         setTimeout(() => {
@@ -163,7 +166,9 @@ const OnlineLobby = ({
       
       // Handle theme compatibility error specifically
       if (data.message && data.message.includes("theme")) {
-        setError(`Cannot join room with different theme. Your current theme is ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}.`);
+        setError(language === "en" 
+          ? `Cannot join room with different theme. Your current theme is ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}.`
+          : `לא ניתן להצטרף לחדר עם נושא שונה. הנושא הנוכחי שלך הוא ${gameTheme === 'dragonball' ? 'דרגון בול' : 'פוקימון'}.`);
       } else {
         setError(data.message);
       }
@@ -172,7 +177,7 @@ const OnlineLobby = ({
         setError("");
       }, 3000);
     });
-  }, [socket, loadRooms, connectionAttempts, gameTheme, setGamePhase, setMultiplayerData, setGameTheme]);
+  }, [socket, loadRooms, connectionAttempts, gameTheme, setGamePhase, setMultiplayerData, setGameTheme, language]);
 
   // Check connection status on mount
   useEffect(() => {
@@ -189,7 +194,7 @@ const OnlineLobby = ({
     const currentName = playerNameRef.current.trim();
     
     if (!currentName) {
-      setError("Please enter your name");
+      setError(language === "en" ? "Please enter your name" : "אנא הזן את שמך");
       return;
     }
     
@@ -201,7 +206,7 @@ const OnlineLobby = ({
       difficulty, 
       gameTheme 
     });
-  }, [socket, difficulty, gameTheme]);
+  }, [socket, difficulty, gameTheme, language]);
 
   // Updated handleJoinRoom to use playerNameRef
   const handleJoinRoom = useCallback((roomId, roomTheme) => {
@@ -209,13 +214,16 @@ const OnlineLobby = ({
     const currentName = playerNameRef.current.trim();
     
     if (!currentName) {
-      setError("Please enter your name");
+      setError(language === "en" ? "Please enter your name" : "אנא הזן את שמך");
       return;
     }
     
     // Check if room theme matches current theme
     if (roomTheme && roomTheme !== gameTheme) {
-      setError(`Cannot join room with different theme (${roomTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}). Your current theme is ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}.`);
+      const themeMessage = language === "en" 
+        ? `Cannot join room with different theme (${roomTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}). Your current theme is ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}.`
+        : `לא ניתן להצטרף לחדר עם נושא שונה (${roomTheme === 'dragonball' ? 'דרגון בול' : 'פוקימון'}). הנושא הנוכחי שלך הוא ${gameTheme === 'dragonball' ? 'דרגון בול' : 'פוקימון'}.`;
+      setError(themeMessage);
       return;
     }
     
@@ -227,7 +235,7 @@ const OnlineLobby = ({
       playerName: currentName, 
       gameTheme 
     });
-  }, [socket, gameTheme]);
+  }, [socket, gameTheme, language]);
   
   // Handle joining by room code
   const handleJoinByCode = useCallback(() => {
@@ -235,12 +243,12 @@ const OnlineLobby = ({
     const currentName = playerNameRef.current.trim();
     
     if (!currentName) {
-      setError("Please enter your name");
+      setError(language === "en" ? "Please enter your name" : "אנא הזן את שמך");
       return;
     }
     
     if (!roomCode.trim()) {
-      setError("Please enter a room code");
+      setError(language === "en" ? "Please enter a room code" : "אנא הזן קוד חדר");
       return;
     }
     
@@ -255,7 +263,10 @@ const OnlineLobby = ({
     // If we found the room in available rooms, check theme compatibility
     if (matchingRoom && matchingRoom.gameTheme && matchingRoom.gameTheme !== gameTheme) {
       setIsLoading(false);
-      setError(`Cannot join room with different theme (${matchingRoom.gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}). Your current theme is ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}.`);
+      const themeMessage = language === "en" 
+        ? `Cannot join room with different theme (${matchingRoom.gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}). Your current theme is ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}.`
+        : `לא ניתן להצטרף לחדר עם נושא שונה (${matchingRoom.gameTheme === 'dragonball' ? 'דרגון בול' : 'פוקימון'}). הנושא הנוכחי שלך הוא ${gameTheme === 'dragonball' ? 'דרגון בול' : 'פוקימון'}.`;
+      setError(themeMessage);
       return;
     }
     
@@ -265,17 +276,17 @@ const OnlineLobby = ({
       playerName: currentName,
       gameTheme 
     });
-  }, [socket, roomCode, gameTheme, availableRooms]);
+  }, [socket, roomCode, gameTheme, availableRooms, language]);
 
   // Add room theme indicator function
   const getRoomThemeIndicator = useCallback((roomTheme) => {
     return (
       <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs text-white 
         ${roomTheme === 'dragonball' ? 'bg-orange-600' : 'bg-blue-600'}`}>
-        {roomTheme === 'dragonball' ? 'DB' : 'PK'}
+        {roomTheme === 'dragonball' ? getText(roomTheme, language, "cardInitials") : getText(roomTheme, language, "cardInitials")}
       </span>
     );
-  }, []);
+  }, [language]);
 
   // Handle back to menu
   const handleBackToMenu = useCallback(() => {
@@ -285,7 +296,7 @@ const OnlineLobby = ({
   }, [socket, setGamePhase]);
 
   return (
-    <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden`}>
+    <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden ${language === 'he' ? 'rtl' : 'ltr'}`}>
       <div className="absolute -inset-full top-0 left-0 h-64 w-96 bg-white/10 rotate-45 transform translate-x-2/3 translate-y-1/3 z-0 opacity-50"></div>
       <div className="absolute -inset-full top-0 left-0 h-32 w-64 bg-white/5 rotate-12 transform -translate-x-1/3 -translate-y-2/3 z-0"></div>
       
@@ -295,41 +306,43 @@ const OnlineLobby = ({
         transition={{ duration: 0.5 }}
         className="relative z-10"
       >
-        <h1 className={`text-2xl font-bold ${currentTheme.title} mb-4`}>Online Multiplayer</h1>
+        <h1 className={`text-2xl font-bold ${currentTheme.title} mb-4`}>{getText(gameTheme, language, "onlinePlay")}</h1>
         
         {/* Current theme indicator */}
         <div className="mb-4 flex items-center justify-center">
-          <span className="text-sm text-gray-300 mr-2">Your Theme:</span>
           <span className={`px-2 py-1 rounded-full text-xs text-white ${
             gameTheme === 'dragonball' ? 'bg-orange-600' : 'bg-blue-600'
           }`}>
-            {gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'}
+            {getText(gameTheme, language, "themeTitle")}
           </span>
         </div>
         
         {/* Connection status */}
         {!isConnected && !isLoading && (
           <div className="mb-4 py-2 px-3 bg-yellow-600/30 border border-yellow-600 text-yellow-200 rounded-lg text-sm">
-            Not connected to server. 
+            {language === "en" ? "Not connected to server." : "לא מחובר לשרת."}
             <button 
               onClick={() => socket.connect()} 
-              className="ml-2 underline hover:text-white"
+              className="mr-2 underline hover:text-white"
             >
-              Retry
+              {language === "en" ? "Retry" : "נסה שוב"}
             </button>
           </div>
         )}
         
         {/* Player name input - wrapped in form to prevent default submission */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-300 mb-1 text-left">Your Name</label>
+          <label className={`block text-sm font-medium text-gray-300 mb-1 ${language === 'he' ? 'text-right' : 'text-left'}`}>
+            {getText(gameTheme, language, "enterYourName")}
+          </label>
           <form onSubmit={(e) => e.preventDefault()}>
             <input
+            dir={language === "en" ? "ltr" : "rtl"}
               type="text"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               className={`w-full bg-gray-700/70 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none ${currentTheme.inputFocus}`}
-              placeholder="Enter your name"
+              placeholder={getText(gameTheme, language, "enterYourName")}
               maxLength={15}
             />
           </form>
@@ -341,13 +354,13 @@ const OnlineLobby = ({
             className={`flex-1 py-2 rounded-l-lg transition ${tab === 'join' ? currentTheme.tabActive : currentTheme.tabInactive}`}
             onClick={() => setTab('join')}
           >
-            Join Game
+            {getText(gameTheme, language, "joinRoom")}
           </button>
           <button
             className={`flex-1 py-2 rounded-r-lg transition ${tab === 'create' ? currentTheme.tabActive : currentTheme.tabInactive}`}
             onClick={() => setTab('create')}
           >
-            Create Game
+            {getText(gameTheme, language, "createRoom")}
           </button>
         </div>
         
@@ -377,13 +390,14 @@ const OnlineLobby = ({
             >
               {/* Room code join */}
               <div className="mb-4">
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 gap-x-2">
                   <input
+                  dir={language === "en" ? "ltr" : "rtl"}
                     type="text"
                     value={roomCode}
                     onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                     className={`flex-1 bg-gray-700/70 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none ${currentTheme.inputFocus} uppercase`}
-                    placeholder="Enter room code"
+                    placeholder={getText(gameTheme, language, "enterRoomCode")}
                     maxLength={6}
                   />
                   <motion.button
@@ -393,15 +407,21 @@ const OnlineLobby = ({
                     onClick={handleJoinByCode}
                     disabled={isLoading}
                   >
-                    {isLoading ? "Joining..." : "Join"}
+                    {isLoading ? 
+                      (language === "en" ? "Joining..." : "מצטרף...") : 
+                      getText(gameTheme, language, "joinRoom")}
                   </motion.button>
                 </div>
               </div>
               
               {/* Available rooms */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className={`text-lg font-medium ${currentTheme.subtitle}`}>Available Rooms</h3>
+                <div
+                dir={language === "en" ? "ltr" : "rtl"}
+                className="flex justify-between items-center mb-2">
+                  <h3 className={`text-lg font-medium ${currentTheme.subtitle}`}>
+                    {getText(gameTheme, language, "availableRooms")}
+                  </h3>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -409,19 +429,19 @@ const OnlineLobby = ({
                     disabled={isLoading}
                     className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-white"
                   >
-                    {isLoading ? "Loading..." : "Refresh"}
+                    {isLoading ? 
+                      (language === "en" ? "Loading..." : "טוען...") : 
+                      (language === "en" ? "Refresh" : "רענן")}
                   </motion.button>
                 </div>
                 
-                {/* Showing only matching theme rooms info */}
-                <div className="text-xs text-gray-300 mb-2">
-                  Showing only rooms with {gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'} theme
-                </div>
-                
+               
                 <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
                   {availableRooms.length === 0 ? (
                     <div className="text-gray-400 py-8 text-center text-sm">
-                      {isLoading ? "Loading rooms..." : `No ${gameTheme === 'dragonball' ? 'Dragon Ball' : 'Pokémon'} rooms available. Create one!`}
+                      {isLoading ? 
+                        (language === "en" ? "Loading rooms..." : "טוען חדרים...") : 
+                        getText(gameTheme, language, "noRoomsAvailable")}
                     </div>
                   ) : (
                     availableRooms.map((room) => (
@@ -432,13 +452,15 @@ const OnlineLobby = ({
                         onClick={() => handleJoinRoom(room.roomId, room.gameTheme)}
                       >
                         <div className="flex justify-between items-center">
-                          <div className="text-left">
+                          <div className={`${language === 'he' ? 'text-right' : 'text-left'}`}>
                             <div className="font-medium text-white flex items-center">
-                              {room.hostName}'s Game
+                              {language === "en" ? 
+                                `${room.hostName}'s Game` : 
+                                `המשחק של ${room.hostName}`}
                               {room.gameTheme && getRoomThemeIndicator(room.gameTheme)}
                             </div>
                             <div className="text-xs text-gray-400">
-                              Room: {room.roomId} • {room.playerCount}/{room.maxPlayers} players
+                              {getText(gameTheme, language, "room")}: {room.roomId} • {room.playerCount}/{room.maxPlayers} {getText(gameTheme, language, "players", "common")}
                             </div>
                           </div>
                           <div>
@@ -447,7 +469,7 @@ const OnlineLobby = ({
                               room.difficulty === 'medium' ? currentTheme.difficultyMedium :
                               currentTheme.difficultyHard
                             }`}>
-                              {room.difficulty}
+                              {getText(gameTheme, language, room.difficulty, "common")}
                             </span>
                           </div>
                         </div>
@@ -466,8 +488,12 @@ const OnlineLobby = ({
               transition={{ duration: 0.2 }}
             >
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-300 mb-1 text-left">Difficulty</label>
-                <div className="grid grid-cols-3 gap-2">
+                <label className={`block text-sm font-medium text-gray-300 mb-1 ${language === 'he' ? 'text-right' : 'text-left'}`}>
+                  {getText(gameTheme, language, "difficulty")}
+                </label>
+                <div
+                dir={language === "en" ? "ltr" : "rtl"}
+                className="grid grid-cols-3 gap-2">
                   {['easy', 'medium', 'hard'].map((level) => (
                     <motion.button
                       key={level}
@@ -484,7 +510,7 @@ const OnlineLobby = ({
                       }`}
                       onClick={() => setDifficulty(level)}
                     >
-                      {level}
+                      {getText(gameTheme, language, level, "common")}
                     </motion.button>
                   ))}
                 </div>
@@ -497,7 +523,9 @@ const OnlineLobby = ({
                 onClick={handleCreateRoom}
                 disabled={isLoading}
               >
-                {isLoading ? "Creating Room..." : "Create Room"}
+                {isLoading ? 
+                  (language === "en" ? "Creating Room..." : "יוצר חדר...") : 
+                  getText(gameTheme, language, "createRoom")}
               </motion.button>
             </motion.div>
           )}
@@ -511,7 +539,7 @@ const OnlineLobby = ({
             className="text-gray-300 hover:text-white"
             onClick={handleBackToMenu}
           >
-            Back to Menu
+            {getText(gameTheme, language, "buttonBack")}
           </motion.button>
         </div>
       </motion.div>

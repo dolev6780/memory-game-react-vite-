@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GameBoard from "./components/GameBoard";
 import IntroScreen from "./components/IntroScreen";
@@ -7,7 +7,16 @@ import ShufflingScreen from "./components/ShufflingScreen";
 import GameOverScreen from "./components/GameOverScreen";
 import OnlineLobby from "./components/OnlineLobby";
 import WaitingRoom from "./components/WaitingRoom";
-import { dragonballCharacters, dragonballBackgroundImage, pokemonBackgroundImage, pokemonCharacters } from "./constants";
+import SplashScreen from "./components/SplashScreen";
+import LanguageToggle from "./components/LanguageToggle";
+import { 
+  dragonballCharacters, 
+  pokemonCharacters,
+  dragonballBackgroundImage, 
+  pokemonBackgroundImage,
+  getText,
+  getCharacterName
+} from "./themeConfig"; // Import from centralized theme config
 import socketService from "./services/socketService";
 import { v4 as uuidv4 } from "uuid";
 
@@ -19,9 +28,15 @@ const DIFFICULTY_CONFIG = {
 };
 
 const App = () => {
+  // Refs to prevent infinite update loops
+  const themeSynchronizedRef = useRef(false);
+  const languageUpdateRef = useRef(false);
+  const difficultyListenerRef = useRef(false);
+
   // Game state
-  const [gamePhase, setGamePhase] = useState("intro");
+  const [gamePhase, setGamePhase] = useState("splash");
   const [gameTheme, setGameTheme] = useState("dragonball");
+  const [language, setLanguage] = useState("he"); // Default to Hebrew
   const [difficulty, setDifficulty] = useState("medium");
   const [isOnline, setIsOnline] = useState(false);
   
@@ -39,7 +54,15 @@ const App = () => {
   const [showPlayerTurn, setShowPlayerTurn] = useState(false);
   const [shuffling, setShuffling] = useState(false);
   const [playerNames, setPlayerNames] = useState([]);
+
   
+  const [gameTime, setGameTime] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+  const [timerResetKey, setTimerResetKey] = useState(0);
+
+
+
+
   // Layout configuration for online games
   const [layoutConfig, setLayoutConfig] = useState(null);
   
@@ -49,7 +72,7 @@ const App = () => {
     isHost: false,
     players: [],
     gameState: null,
-    gameTheme: null  // Add gameTheme property
+    gameTheme: null
   });
   
   // Window size for responsive design
@@ -57,6 +80,11 @@ const App = () => {
     width: window.innerWidth,
     height: window.innerHeight,
   });
+
+  // Toggle language function
+  const toggleLanguage = useCallback(() => {
+    setLanguage(prev => prev === "en" ? "he" : "en");
+  }, []);
 
   // Define a cleanup function to handle phase transitions
   const cleanupPhaseTransition = useCallback((oldPhase, newPhase) => {
@@ -70,19 +98,63 @@ const App = () => {
         socketService.resetState();
       }
     }
-  }, []);
+    
+    // Special handling for game_over to waiting_room transition (play again)
+    if (oldPhase === "game_over" && newPhase === "waiting_room") {
+      console.log("Transitioning from game over to waiting room, resetting game state");
+      
+      // Reset game state
+      setFlippedIndices([]);
+      setMatchedPairs([]);
+      setMatchedBy({});
+      setGameTime(0);
+      setTimerResetKey(prev => prev + 1);
+      setTimerActive(false);
+      
+      // Make sure to reset card display names with the correct language
+      if (cards.length > 0) {
+        const updatedCards = cards.map(card => ({
+          ...card,
+          displayName: getCharacterName(card, language)
+        }));
+        setCards(updatedCards);
+      }
+    }
+  }, [cards, language, setCards]);
 
-  // Enhanced setGamePhase with cleanup
   const setGamePhaseWithCleanup = useCallback((newPhase) => {
     cleanupPhaseTransition(gamePhase, newPhase);
+    
+    // Stop timer when leaving game board
+    if (gamePhase === "game_board" && newPhase !== "game_board") {
+      setTimerActive(false);
+    }
+  
+    // Reset timer when returning to intro/lobby from game over
+    if (gamePhase === "game_over" && (newPhase === "intro" || newPhase === "online_lobby")) {
+      setTimerResetKey(prev => prev + 1);
+      setGameTime(0);
+    }
+  
     setGamePhase(newPhase);
   }, [gamePhase, cleanupPhaseTransition]);
 
-  // Theme synchronization effect
+  // Handle splash screen completion
+  const handleSplashComplete = useCallback((selectedTheme) => {
+    if (selectedTheme && selectedTheme !== gameTheme) {
+      setGameTheme(selectedTheme);
+    }
+    setGamePhaseWithCleanup("intro");
+  }, [gameTheme, setGamePhaseWithCleanup]);
+
+  // FIXED: Theme synchronization effect to prevent infinite updates
   useEffect(() => {
-    // If we have a theme in multiplayerData and it's different from current theme
-    if (multiplayerData.gameTheme && multiplayerData.gameTheme !== gameTheme) {
+    // Only synchronize if not already done and if we have a theme to sync
+    if (!themeSynchronizedRef.current && multiplayerData.gameTheme && multiplayerData.gameTheme !== gameTheme) {
       console.log(`Synchronizing theme: ${gameTheme} -> ${multiplayerData.gameTheme}`);
+      // Mark as synchronized
+      themeSynchronizedRef.current = true;
+      
       // Use a slight delay to ensure all components update properly
       const timerId = setTimeout(() => {
         setGameTheme(multiplayerData.gameTheme);
@@ -90,14 +162,45 @@ const App = () => {
       
       return () => clearTimeout(timerId);
     }
-  }, [multiplayerData.gameTheme, gameTheme, setGameTheme]);
+  }, [multiplayerData.gameTheme, gameTheme]); // Include gameTheme for comparison but handle loop protection with ref
 
-  socketService.on("difficultyUpdated", (data) => {
-    if (data.difficulty && data.difficulty !== difficulty) {
-      console.log(`Updating difficulty from server: ${difficulty} -> ${data.difficulty}`);
-      setDifficulty(data.difficulty);
+  // FIXED: Socket listeners inside useEffect
+  useEffect(() => {
+    // Skip if we've already set up this listener with the current difficulty
+    if (difficultyListenerRef.current) return;
+    difficultyListenerRef.current = true;
+    
+    const handleDifficultyUpdate = (data) => {
+      if (data.difficulty && data.difficulty !== difficulty) {
+        console.log(`Updating difficulty from server: ${difficulty} -> ${data.difficulty}`);
+        setDifficulty(data.difficulty);
+      }
+    };
+
+    socketService.on("difficultyUpdated", handleDifficultyUpdate);
+    
+    return () => {
+      socketService.on("difficultyUpdated", null); // Remove listener on cleanup
+      difficultyListenerRef.current = false;
+    };
+  }, [difficulty]); // Only re-run if difficulty changes
+
+  useEffect(() => {
+    // Only the host should sync time to the server
+    if (isOnline && timerActive && multiplayerData.isHost) {
+      // Create a timer to sync game time every second
+      const syncInterval = setInterval(() => {
+        socketService.syncGameTime({
+          roomId: multiplayerData.roomId,
+          gameTime: gameTime
+        });
+      }, 1000);
+      
+      return () => {
+        clearInterval(syncInterval);
+      };
     }
-  });
+  }, [isOnline, timerActive, multiplayerData.isHost, multiplayerData.roomId, gameTime]);
 
   // Handle window resize for responsive design
   useEffect(() => {
@@ -112,115 +215,303 @@ const App = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
   
-  // Setup socket listeners for online gameplay
+  // Update card names when language changes without infinite loops
   useEffect(() => {
-    if (!isOnline) return;
+    // Skip if we're in the middle of an update already or no cards
+    if (languageUpdateRef.current || cards.length === 0) return;
     
-    // Clean up any existing listeners to prevent duplicates
-    socketService.on("gameStarted", null);
-    socketService.on("cardFlipped", null);
-    socketService.on("turnUpdate", null);
-    socketService.on("gameOver", null);
+    // Set flag to prevent concurrent updates
+    languageUpdateRef.current = true;
     
-    // Listen for game events from the server
-    socketService.on("gameStarted", (data) => {
-      console.log("Game started event in App.jsx:", data);
-      
-      // If the server provided layout configuration, use it
-      if (data.layoutConfig) {
-        console.log("Using layout config from server:", data.layoutConfig);
-        setLayoutConfig(data.layoutConfig);
-      }
-      
-      // Make sure we're using the server's game state
-      setFlippedIndices(data.gameState?.flippedIndices || []);
-      setMatchedPairs(data.gameState?.matchedPairs || []);
-      setMatchedBy(data.gameState?.matchedBy || {});
-      
-      // If cards have theme information, update the local cards
-      if (data.gameState && data.gameState.cards) {
-        setCards(data.gameState.cards);
-      }
-      
-      // Update difficulty if provided by server
-      if (data.difficulty && data.difficulty !== difficulty) {
-        console.log(`Updating difficulty: ${difficulty} -> ${data.difficulty}`);
-        setDifficulty(data.difficulty);
-      }
-    });
+    // Create a safe shallow copy to work with
+    const currentCards = [...cards];
     
-    socketService.on("cardFlipped", (data) => {
-      // Make sure we're using the server's game state
-      setFlippedIndices(data.gameState.flippedIndices);
-      setMatchedPairs(data.gameState.matchedPairs);
+    // Update card names when language changes
+    const updatedCards = currentCards.map(card => ({
+      ...card,
+      displayName: getCharacterName(card, language)
+    }));
+    
+    // Schedule update for next render cycle
+    setTimeout(() => {
+      setCards(updatedCards);
+      // Reset flag after update
+      languageUpdateRef.current = false;
+    }, 0);
+    
+  }, [language, cards]); // Include cards with loop prevention via the ref flag
+  
+  // Setup socket listeners for online gameplay
+// Setup socket listeners for online gameplay
+useEffect(() => {
+  if (!isOnline) return;
+  
+  // Clean up any existing listeners to prevent duplicates
+  socketService.on("gameStarted", null);
+  socketService.on("cardFlipped", null);
+  socketService.on("turnUpdate", null);
+  socketService.on("gameOver", null);
+  socketService.on("gameReset", null); // Add this line
+  // Listen for game events from the server
+  socketService.on("gameStarted", (data) => {
+    console.log("Game started event in App.jsx:", data);
+    
+    // If the server provided layout configuration, use it
+    if (data.layoutConfig) {
+      console.log("Using layout config from server:", data.layoutConfig);
+      setLayoutConfig(data.layoutConfig);
+    }
+    
+    // Make sure we're using the server's game state
+    setFlippedIndices(data.gameState?.flippedIndices || []);
+    setMatchedPairs(data.gameState?.matchedPairs || []);
+    
+    // Update matchedBy from server data (this is crucial for all players to see who matched what)
+    if (data.gameState?.matchedBy) {
+      console.log("Updating matchedBy from server:", data.gameState.matchedBy);
       setMatchedBy(data.gameState.matchedBy);
-      
-      // If cards have theme information, update the local cards
-      if (data.gameState.cards) {
-        setCards(data.gameState.cards);
-      }
+    } else {
+      setMatchedBy({});
+    }
+    
+    // If cards have theme information, update the local cards
+    if (data.gameState && data.gameState.cards) {
+      // Ensure cards have proper display names based on current language
+      const updatedCards = data.gameState.cards.map(card => ({
+        ...card,
+        cardTheme: card.cardTheme || data.gameTheme || gameTheme,
+        displayName: getCharacterName(card, language)
+      }));
+      setCards(updatedCards);
+    }
+    
+    // Update difficulty if provided by server
+    if (data.difficulty && data.difficulty !== difficulty) {
+      console.log(`Updating difficulty: ${difficulty} -> ${data.difficulty}`);
+      setDifficulty(data.difficulty);
+    }
+    
+    // Update player information
+    if (data.players && data.players.length > 0) {
+      console.log("Updating player data from server:", data.players);
       
       // Update player scores
       setPlayerScores(data.players.map(player => ({
         id: player.id,
         name: player.name,
-        score: player.score,
-        moves: player.moves
+        score: player.score || 0,
+        moves: player.moves || 0
       })));
-    });
+      
+      // Update player names
+      setPlayerNames(data.players.map(player => player.name));
+    }
     
-    socketService.on("turnUpdate", (data) => {
-      // Update with server's game state
-      setFlippedIndices(data.gameState.flippedIndices);
-      setMatchedPairs(data.gameState.matchedPairs);
-      setMatchedBy(data.gameState.matchedBy);
-      
-      // If cards have theme information, update the local cards
-      if (data.gameState.cards) {
-        setCards(data.gameState.cards);
-      }
-      
-      // Update current player
-      setCurrentPlayer(data.currentPlayer);
-      setShowPlayerTurn(true);
-      
-      // Hide player turn notification after delay
-      setTimeout(() => {
-        setShowPlayerTurn(false);
-      }, 1500);
-    });
+    // Reset and start timer for online game
+    setGameTime(0);
+    setTimerResetKey(prev => prev + 1);
+    setTimerActive(true);
+  });
+  
+  socketService.on("cardFlipped", (data) => {
+    // Make sure we're using the server's game state
+    setFlippedIndices(data.gameState.flippedIndices);
+    setMatchedPairs(data.gameState.matchedPairs);
     
-    socketService.on("gameOver", (data) => {
-      // Update final game state
-      setFlippedIndices(data.gameState.flippedIndices);
-      setMatchedPairs(data.gameState.matchedPairs);
+    // Update matchedBy from server data
+    if (data.gameState.matchedBy) {
+      console.log("Updating matchedBy from cardFlipped:", data.gameState.matchedBy);
       setMatchedBy(data.gameState.matchedBy);
-      
-      // If cards have theme information, update the local cards
-      if (data.gameState.cards) {
-        setCards(data.gameState.cards);
-      }
-      
-      // Update player scores one last time
+    }
+    
+    // If cards have theme information, update the local cards
+    if (data.gameState.cards) {
+      const updatedCards = data.gameState.cards.map(card => ({
+        ...card,
+        cardTheme: card.cardTheme || data.gameTheme || gameTheme,
+        displayName: getCharacterName(card, language)
+      }));
+      setCards(updatedCards);
+    }
+    
+    // Update player scores and names
+    if (data.players && data.players.length > 0) {
       setPlayerScores(data.players.map(player => ({
         id: player.id,
         name: player.name,
-        score: player.score,
-        moves: player.moves
+        score: player.score || 0,
+        moves: player.moves || 0
       })));
       
-      // Move to game over screen
-      setGamePhaseWithCleanup("game_over");
-    });
+      // Update player names
+      setPlayerNames(data.players.map(player => player.name));
+    }
     
-    // Clean up on component unmount
-    return () => {
-      socketService.on("gameStarted", null);
-      socketService.on("cardFlipped", null);
-      socketService.on("turnUpdate", null);
-      socketService.on("gameOver", null);
-    };
-  }, [isOnline, difficulty, setGamePhaseWithCleanup]);
+    // Sync game time if provided
+    if (data.gameTime !== undefined) {
+      setGameTime(data.gameTime);
+    }
+  });
+  
+  socketService.on("turnUpdate", (data) => {
+    // Update with server's game state
+    setFlippedIndices(data.gameState.flippedIndices);
+    setMatchedPairs(data.gameState.matchedPairs);
+    
+    // Update matchedBy from server data
+    if (data.gameState.matchedBy) {
+      console.log("Updating matchedBy from turnUpdate:", data.gameState.matchedBy);
+      setMatchedBy(data.gameState.matchedBy);
+    }
+    
+    // If cards have theme information, update the local cards
+    if (data.gameState.cards) {
+      const updatedCards = data.gameState.cards.map(card => ({
+        ...card,
+        cardTheme: card.cardTheme || data.gameTheme || gameTheme,
+        displayName: getCharacterName(card, language)
+      }));
+      setCards(updatedCards);
+    }
+    
+    // Update current player
+    setCurrentPlayer(data.currentPlayer);
+    setShowPlayerTurn(true);
+    
+    // Update player scores and names
+    if (data.players && data.players.length > 0) {
+      setPlayerScores(data.players.map(player => ({
+        id: player.id,
+        name: player.name,
+        score: player.score || 0,
+        moves: player.moves || 0
+      })));
+      
+      // Update player names
+      setPlayerNames(data.players.map(player => player.name));
+    }
+    
+    // Sync game time if provided
+    if (data.gameTime !== undefined) {
+      setGameTime(data.gameTime);
+    }
+    
+    // Hide player turn notification after delay
+    setTimeout(() => {
+      setShowPlayerTurn(false);
+    }, 1500);
+  });
+  
+  socketService.on("gameOver", (data) => {
+    // Update final game state
+    setFlippedIndices(data.gameState.flippedIndices);
+    setMatchedPairs(data.gameState.matchedPairs);
+    
+    // Update matchedBy from server data
+    if (data.gameState.matchedBy) {
+      console.log("Final matchedBy from gameOver:", data.gameState.matchedBy);
+      setMatchedBy(data.gameState.matchedBy);
+    }
+
+    if (data.gameTime !== undefined) {
+      console.log("Using final game time from server:", data.gameTime);
+      setGameTime(data.gameTime);
+    }
+    
+    // If cards have theme information, update the local cards
+    if (data.gameState.cards) {
+      const updatedCards = data.gameState.cards.map(card => ({
+        ...card,
+        cardTheme: card.cardTheme || data.gameTheme || gameTheme,
+        displayName: getCharacterName(card, language)
+      }));
+      setCards(updatedCards);
+    }
+    
+    // Update player scores one last time
+    if (data.players && data.players.length > 0) {
+      setPlayerScores(data.players.map(player => ({
+        id: player.id,
+        name: player.name,
+        score: player.score || 0,
+        moves: player.moves || 0
+      })));
+      
+      // Update player names
+      setPlayerNames(data.players.map(player => player.name));
+    }
+    
+    // Sync final game time if provided
+    if (data.gameTime !== undefined) {
+      setGameTime(data.gameTime);
+    }
+    
+    // Stop the timer
+    setTimerActive(false);
+    
+    // Move to game over screen
+    setTimeout(() => {
+      setGamePhaseWithCleanup("game_over");
+    }, 1000);
+  });
+
+  // Add a gameReset listener to ensure proper state reset
+  socketService.on("gameReset", (data) => {
+    console.log("Game reset event received in App.jsx:", data);
+    
+    // Reset all game state
+    setFlippedIndices([]);
+    setMatchedPairs([]);
+    setMatchedBy({});
+    setCards([]);
+    
+    // Reset time
+    setGameTime(0);
+    setTimerResetKey(prev => prev + 1);
+    setTimerActive(false);
+    
+    // Update player information
+    if (data.players && data.players.length > 0) {
+      console.log("Updating player data after reset:", data.players);
+      
+      // Update player scores
+      setPlayerScores(data.players.map(player => ({
+        id: player.id,
+        name: player.name,
+        score: player.score || 0,
+        moves: player.moves || 0
+      })));
+      
+      // Update player names
+      setPlayerNames(data.players.map(player => player.name));
+    }
+    
+    // Update difficulty if provided
+    if (data.difficulty && data.difficulty !== difficulty) {
+      console.log(`Updating difficulty after reset: ${difficulty} -> ${data.difficulty}`);
+      setDifficulty(data.difficulty);
+    }
+    
+    // Update theme if provided
+    if (data.gameTheme && data.gameTheme !== gameTheme) {
+      console.log(`Updating theme after reset: ${gameTheme} -> ${data.gameTheme}`);
+      setGameTheme(data.gameTheme);
+    }
+  });
+
+  
+
+  
+  // Clean up on component unmount
+  return () => {
+    socketService.on("gameStarted", null);
+    socketService.on("cardFlipped", null);
+    socketService.on("turnUpdate", null);
+    socketService.on("gameOver", null);
+    socketService.on("gameReset", null); // Add this line
+
+  };
+}, [isOnline, difficulty, gameTheme, language, setGamePhaseWithCleanup]);
 
   // Updated styles calculation function
   const styles = useCallback(() => {
@@ -361,7 +652,7 @@ const App = () => {
       },
       fontSize: fontSize,
     };
-  }, [difficulty, windowSize, isOnline, cards]);
+  }, [difficulty, windowSize, isOnline, cards.length]); // Depend on cards.length instead of cards objects
 
   // Initialize players for local gameplay
   const initializePlayers = useCallback(() => {
@@ -378,17 +669,20 @@ const App = () => {
 
   // Initialize or reset the game
   const initializeGame = useCallback(() => {
+
+    setGameTime(0);
+    setTimerResetKey(prev => prev + 1);
+    setTimerActive(false); // Start with timer inactive
+
     // Skip if we're in online mode
     if (isOnline) return;
-    
+
     setShuffling(true);
     setGamePhaseWithCleanup("shuffling");
     setFlippedIndices([]);
     setMatchedPairs([]);
     setMatchedBy({});
     setMoves(0);
-
-    console.log(`Initializing game with theme: ${gameTheme}`);
 
     // Get the appropriate character set
     const characterSet = gameTheme === "dragonball" ? dragonballCharacters : pokemonCharacters;
@@ -401,14 +695,27 @@ const App = () => {
     const selectedCharacters = shuffledCharacters.slice(0, config.pairs);
     setCharacters(selectedCharacters);
 
-    // Create card pairs with theme information
+    // Create card pairs with theme information, now with language-specific names
     const cardPairs = selectedCharacters.flatMap((character) => [
-      { ...character, uniqueId: uuidv4(), cardTheme: gameTheme }, // Add theme to each card
-      { ...character, uniqueId: uuidv4(), cardTheme: gameTheme }, // Add theme to each card
+      { 
+        ...character, 
+        uniqueId: uuidv4(), 
+        cardTheme: gameTheme,
+        displayName: getCharacterName(character, language)
+      },
+      { 
+        ...character, 
+        uniqueId: uuidv4(), 
+        cardTheme: gameTheme,
+        displayName: getCharacterName(character, language)
+      },
     ]);
 
     // Shuffle cards
     const shuffledCards = [...cardPairs].sort(() => Math.random() - 0.5);
+    
+    // Reset language update flag before setting cards
+    languageUpdateRef.current = false;
     setCards(shuffledCards);
 
     // Initialize player scores
@@ -416,12 +723,16 @@ const App = () => {
       initializePlayers();
     }
 
-    // Small delay to show shuffling animation
     setTimeout(() => {
       setShuffling(false);
       setGamePhaseWithCleanup("game_board");
+      
+      // Add a delayed start of timer after transitioning to game board
+      setTimeout(() => {
+        setTimerActive(true);
+      }, 500);
     }, 1500);
-  }, [difficulty, playerCount, initializePlayers, gameTheme, isOnline, setGamePhaseWithCleanup]);
+  }, [difficulty, playerCount, initializePlayers, gameTheme, language, isOnline, setGamePhaseWithCleanup]);
 
   // Start game with player names
   const handleStartGame = (names) => {
@@ -450,9 +761,27 @@ const App = () => {
       if (isOnline) {
         socketService.cardClick({
           roomId: multiplayerData.roomId,
-          cardIndex: index
+          cardIndex: index,
+          gameTime: gameTime // Send current game time to server for synchronization
         });
         return;
+      }
+      if (moves === 0 && !timerActive) {
+        setTimerActive(true);
+      }
+
+      // Need to ensure cards array is valid before proceeding
+      if (!cards || !cards[index]) {
+        console.error("Invalid cards array or index", index);
+        return;
+      }
+
+      if (matchedPairs.length + 1 === characters.length) {
+        setTimerActive(false);
+        
+        setTimeout(() => {
+          setGamePhaseWithCleanup("game_over");
+        }, 1500);
       }
       
       // Local gameplay logic
@@ -506,6 +835,9 @@ const App = () => {
 
           // Check if game is over
           if (matchedPairs.length + 1 === characters.length) {
+
+            setTimerActive(false);
+
             setTimeout(() => {
               setGamePhaseWithCleanup("game_over");
             }, 1500);
@@ -517,10 +849,11 @@ const App = () => {
             switchPlayer();
           }, 1000);
         }
+        
       }
     },
     [
-      cards,
+      cards, // Include cards as a dependency
       characters?.length,
       currentPlayer,
       flippedIndices,
@@ -532,7 +865,9 @@ const App = () => {
       playerScores,
       switchPlayer,
       multiplayerData.roomId,
-      setGamePhaseWithCleanup
+      setGamePhaseWithCleanup,
+      timerActive,
+      gameTime
     ]
   );
 
@@ -545,7 +880,7 @@ const App = () => {
   const handlePlayerCountSelect = (count) => {
     setPlayerCount(count);
     // Reset player names when player count changes
-    setPlayerNames(Array(count).fill('').map((_, i) => `Player ${i + 1}`));
+    setPlayerNames(Array(count).fill(''));
   };
 
   // Handle online mode selection from intro screen - UPDATED
@@ -578,6 +913,14 @@ const App = () => {
   // Phase controller - determine which component to show
   const phaseController = () => {
     switch (gamePhase) {
+      case "splash":
+        return (
+          <SplashScreen 
+            onComplete={handleSplashComplete}
+            initialTheme={gameTheme}
+            language={language}
+          />
+        );
       case "intro":
         return (
           <motion.div
@@ -590,9 +933,11 @@ const App = () => {
             <IntroScreen
               difficulty={difficulty}
               gameTheme={gameTheme}
+              language={language}
+              toggleLanguage={toggleLanguage}
               handleThemeSelect={handleThemeSelect}
-              handleOnlineSelect={handleOnlineSelect} // No longer passing handleDifficultySelect
-              gameTitle={gameTheme === "dragonball" ? "Dragon Ball" : "Pokémon"}
+              handleOnlineSelect={handleOnlineSelect}
+              gameTitle={getText(gameTheme, language, "themeTitle")}
             />
           </motion.div>
         );
@@ -607,7 +952,7 @@ const App = () => {
           >
             <PlayerSelectScreen
               difficulty={difficulty}
-              setDifficulty={setDifficulty} // Add this prop
+              setDifficulty={setDifficulty}
               playerCount={playerCount}
               handlePlayerCountSelect={handlePlayerCountSelect}
               setGamePhase={setGamePhaseWithCleanup}
@@ -615,6 +960,8 @@ const App = () => {
               playerNames={playerNames}
               setPlayerNames={setPlayerNames}
               gameTheme={gameTheme}
+              language={language}
+              toggleLanguage={toggleLanguage}
             />
           </motion.div>
         );
@@ -634,6 +981,8 @@ const App = () => {
               difficulty={difficulty}
               setDifficulty={setDifficulty}
               setGameTheme={setGameTheme}
+              language={language}
+              toggleLanguage={toggleLanguage}
             />
           </motion.div>
         );
@@ -652,7 +1001,7 @@ const App = () => {
                 gameTheme={gameTheme}
                 setGameTheme={setGameTheme}
                 difficulty={difficulty}
-                setDifficulty={setDifficulty} // Add this prop
+                setDifficulty={setDifficulty}
                 setCards={setCards}
                 setMatchedPairs={setMatchedPairs}
                 setFlippedIndices={setFlippedIndices}
@@ -661,6 +1010,8 @@ const App = () => {
                 setPlayerNames={setPlayerNames}
                 setMatchedBy={setMatchedBy}
                 setShowPlayerTurn={setShowPlayerTurn}
+                language={language}
+                toggleLanguage={toggleLanguage}
               />
             </motion.div>
           );
@@ -678,6 +1029,7 @@ const App = () => {
               shuffling={shuffling}
               styles={styles()}
               gameTheme={gameTheme}
+              language={language}
             />
           </motion.div>
         );
@@ -710,7 +1062,13 @@ const App = () => {
               gameTheme={gameTheme}
               setGameTheme={setGameTheme}
               isOnline={isOnline}
-              layoutConfig={layoutConfig} // Pass layout config to GameBoard
+              layoutConfig={layoutConfig}
+              language={language}
+              toggleLanguage={toggleLanguage}
+              timerActive={timerActive}
+              timerResetKey={timerResetKey}
+              onTimeUpdate={setGameTime}
+              roomId={multiplayerData.roomId}
             />
           </motion.div>
         );
@@ -735,6 +1093,9 @@ const App = () => {
               gameTheme={gameTheme}
               isOnline={isOnline}
               roomId={multiplayerData.roomId}
+              language={language}
+              toggleLanguage={toggleLanguage}
+              completionTime={gameTime}
             />
           </motion.div>
         );
@@ -747,12 +1108,24 @@ const App = () => {
   const backgroundImage = gameTheme === "dragonball" ? dragonballBackgroundImage : pokemonBackgroundImage;
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-2 sm:p-4 bg-gray-900 relative overflow-hidden">
+    <div className={`min-h-screen w-full flex items-center justify-center p-2 sm:p-4 bg-gray-900 relative overflow-hidden ${language === 'he' ? 'rtl' : 'ltr'}`}>
+      {/* Language toggle in fixed position */}
+      {gamePhase !== "splash" && gamePhase !== "game_board" && (
+        <div className="fixed top-3 right-3 z-50">
+          <LanguageToggle 
+            language={language} 
+            toggleLanguage={toggleLanguage} 
+            gameTheme={gameTheme}
+          />
+        </div>
+      )}
+      
       {/* Background image */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 z-0"
         style={{ backgroundImage: `url(${backgroundImage})` }}
       />
+      
       {/* Game container */}
       <div className="relative z-10 w-full max-w-4xl mx-auto">
         <AnimatePresence mode="wait">

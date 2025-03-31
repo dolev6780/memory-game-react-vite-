@@ -1,10 +1,9 @@
-// Add a useEffect in GameBoard.jsx to enforce theme consistency
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import GameHeader from "./GameHeader";
 import GameCard from "./GameCard";
 import socketService from "../services/socketService";
+import { themeStyles, getText } from "../themeConfig";
 
 const GameBoard = ({
   cards,
@@ -24,43 +23,69 @@ const GameBoard = ({
   playerNames = [],
   matchedBy = {}, 
   gameTheme = "dragonball",
-  setGameTheme, // Add this prop
-  isOnline = false
+  setGameTheme,
+  isOnline = false,
+  language = "he",
+  toggleLanguage,
+  timerActive = false,
+  timerResetKey = 0,
+  onTimeUpdate = null,
+  roomId = null
 }) => {
-  // Define theme-specific styles
-  const themeStyles = {
-    dragonball: {
-      container: "bg-black/40",
-      turnNotificationGradient: "from-orange-600 to-orange-500",
-      turnNotificationBorder: "border-yellow-300",
-    },
-    pokemon: {
-      container: "bg-blue-900/40",
-      turnNotificationGradient: "from-blue-600 to-yellow-500",
-      turnNotificationBorder: "border-blue-300",
-    }
-  };
+  // Get theme styles from centralized config
+  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.dragonball;
 
-  // Get current theme styles
-  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+  // Create theme-specific styles for this component
+  const currentTheme = {
+    container: gameTheme === "dragonball" ? "bg-black/40" : "bg-blue-900/40",
+    turnNotificationGradient: gameTheme === "dragonball" ? "from-orange-600 to-orange-500" : "from-blue-600 to-yellow-500",
+    turnNotificationBorder: gameTheme === "dragonball" ? "border-yellow-300" : "border-blue-300",
+  };
   
   // State to track container size
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
   
   // Reference to the main container
-  const containerRef = React.useRef(null);
+  const containerRef = useRef(null);
+  
+  // First render flag to avoid infinite update loops
+  const isFirstRender = useRef(true);
 
-  // If this is an online game, ensure we're using the theme from socketService
+  // Debug for online mode
   useEffect(() => {
     if (isOnline) {
-      const socketTheme = socketService.getGameTheme();
-      if (socketTheme && socketTheme !== gameTheme && setGameTheme) {
-        console.log(`GameBoard enforcing theme: ${gameTheme} -> ${socketTheme}`);
-        setGameTheme(socketTheme);
+      console.log("GameBoard - Online Mode Data:");
+      console.log("PlayerScores:", playerScores);
+      console.log("MatchedBy:", matchedBy);
+      console.log("PlayerNames:", playerNames);
+      console.log("Player Count:", playerCount);
+      console.log("Cards Length:", cards.length);
+      console.log("Matched Pairs:", matchedPairs);
+    }
+  }, [isOnline, playerScores, matchedBy, playerNames, playerCount, cards.length, matchedPairs]);
+
+  // One-time effect for theme synchronization on mount
+  useEffect(() => {
+    // This entire block only runs once when the component mounts
+    if (isFirstRender.current && isOnline) {
+      isFirstRender.current = false;
+      
+      try {
+        const socketTheme = socketService.getGameTheme();
+        // Only update if the themes are different and we have a setter function
+        if (socketTheme && socketTheme !== gameTheme && typeof setGameTheme === 'function') {
+          console.log(`GameBoard enforcing theme: ${gameTheme} -> ${socketTheme}`);
+          // Schedule the theme change for the next render cycle to avoid issues
+          setTimeout(() => {
+            setGameTheme(socketTheme);
+          }, 0);
+        }
+      } catch (error) {
+        console.error("Error synchronizing theme:", error);
       }
     }
-  }, [isOnline, gameTheme, setGameTheme]);
+  }, [gameTheme, isOnline, setGameTheme]);
   
   // Calculate the appropriate scale for the game board
   useEffect(() => {
@@ -108,27 +133,43 @@ const GameBoard = ({
     return () => window.removeEventListener('resize', updateScale);
   }, [cards.length, styles.card]);
   
-  // Get current player name or default to "Player X"
+  // Get current player name or default to localized "Player X"
   const getCurrentPlayerName = () => {
-    return playerNames[currentPlayer] || `Player ${currentPlayer + 1}`;
+    // Make sure playerNames array is valid and has the currentPlayer index
+    if (Array.isArray(playerNames) && playerNames[currentPlayer]) {
+      return playerNames[currentPlayer];
+    }
+    
+    // Fallback to localized default
+    return language === "en" ? 
+      `Player ${currentPlayer + 1}` : `שחקן ${currentPlayer + 1}`;
   };
 
   // Get player name who matched a card
   const getPlayerNameWhoMatched = (cardId) => {
-    if (matchedBy[cardId] !== undefined) {
+    if (matchedBy && matchedBy[cardId] !== undefined) {
       const playerIndex = matchedBy[cardId];
-      return playerNames[playerIndex] || `Player ${playerIndex + 1}`;
+      
+      // Make sure playerNames array is valid and has the playerIndex
+      if (Array.isArray(playerNames) && playerIndex >= 0 && playerIndex < playerNames.length && playerNames[playerIndex]) {
+        return playerNames[playerIndex];
+      }
+      
+      // Fallback to localized default
+      return language === "en" ? 
+        `Player ${playerIndex + 1}` : `שחקן ${playerIndex + 1}`;
     }
     return null;
   };
 
   return (
     <div 
-      className={`flex flex-col items-center w-full max-h-screen p-2 sm:p-3 ${currentTheme.container} rounded-lg backdrop-blur-sm shadow-lg overflow-hidden`}
+      className={`flex flex-col items-center w-full max-h-screen p-2 sm:p-3 ${currentTheme.container} rounded-lg backdrop-blur-sm shadow-lg overflow-hidden ${language === 'he' ? 'rtl' : 'ltr'}`}
       ref={containerRef}
       style={{ height: `calc(100vh - 20px)` }} // Limit to viewport height minus padding
+      dir={language === "en" ? 'ltr' : 'rtl'}
     >
-      {/* Game header - more compact */}
+      {/* Game header */}
       <div className="w-full mb-1 sm:mb-2">
         <GameHeader
           difficulty={difficulty}
@@ -136,7 +177,7 @@ const GameBoard = ({
           moves={moves}
           matchedPairs={matchedPairs}
           characters={characters || []}
-          playerCount={playerCount}
+          playerCount={isOnline ? (Array.isArray(playerScores) ? playerScores.length : 0) : playerCount}
           playerScores={playerScores}
           currentPlayer={currentPlayer}
           playerNames={playerNames}
@@ -144,43 +185,19 @@ const GameBoard = ({
           setGamePhase={setGamePhase}
           gameTheme={gameTheme}
           isOnline={isOnline}
+          language={language}
+          toggleLanguage={toggleLanguage}
+          timerActive={timerActive}
+          timerResetKey={timerResetKey}
+          onTimeUpdate={onTimeUpdate}
+          roomId={roomId}
+          matchedBy={matchedBy}
         />
       </div>
       
-      {/* Theme indicator for debugging */}
-      {isOnline && (
-        <div className="absolute top-1 right-1 z-30">
-          <span className={`px-2 py-1 rounded-full text-xs text-white ${
-            gameTheme === 'dragonball' ? 'bg-orange-600' : 'bg-blue-600'
-          }`}>
-            {gameTheme === 'dragonball' ? 'DB Theme' : 'PK Theme'}
-          </span>
-        </div>
-      )}
+     
       
-      {/* Player turn notification */}
-      <AnimatePresence>
-  {showPlayerTurn && (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      className={`fixed top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r ${currentTheme.turnNotificationGradient} text-white px-4 py-2 rounded-full shadow-lg z-20 text-sm border-2 ${currentTheme.turnNotificationBorder}`}
-    >
-      <div className="font-bold flex items-center">
-        <span className="mr-2">{getCurrentPlayerName()}'s Turn</span>
-        {/* Add a small animated indicator */}
-        <motion.div
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ duration: 1, repeat: Infinity }}
-          className="w-2 h-2 rounded-full bg-white"
-        />
-      </div>
-    </motion.div>
-  )}
-</AnimatePresence>
-      
-      {/* Game board - with better scaling */}
+      {/* Game board - with dynamic scaling */}
       <div 
         className="w-full flex-1 flex items-center justify-center overflow-hidden" 
         style={{ 
@@ -194,15 +211,16 @@ const GameBoard = ({
           transition: 'transform 0.3s ease'
         }}>
           {cards.map((card, index) => {
-            // Create enhanced card with matchedBy property
+            // Create enhanced card with matchedBy property and proper translation
             const enhancedCard = {
               ...card,
-              matchedBy: getPlayerNameWhoMatched(card.id)
+              matchedBy: getPlayerNameWhoMatched(card.id),
+              displayName: card.displayName || card.name?.he || card.name?.en || card.name
             };
             
             return (
               <GameCard
-                key={card.uniqueId || `card-${index}`} // Ensure each card has a unique key
+                key={card.uniqueId || `card-${index}`}
                 card={enhancedCard}
                 index={index}
                 isFlipped={flippedIndices.includes(index)}
@@ -210,6 +228,8 @@ const GameBoard = ({
                 handleCardClick={() => handleCardClick(index)}
                 styles={styles}
                 gameTheme={gameTheme}
+                language={language}
+                matchedByText={getText(gameTheme, language, "matchedBy")}
               />
             );
           })}
