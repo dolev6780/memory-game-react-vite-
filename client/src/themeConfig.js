@@ -39,7 +39,7 @@ import garchomp from "./assets/pokemon/garchomp.png";
 import gengar from "./assets/pokemon/gengar.jpg";
 import greninja from "./assets/pokemon/greninja.png";
 import gyarados from "./assets/pokemon/gyarados.png";
-import jigglypuff from "./assets/pokemon/jigglypuff.png";
+import jigglypuff from "./assets/pokemon/Jigglypuff.png";
 import lucario from "./assets/pokemon/lucario.png";
 import mew from "./assets/pokemon/mew.png";
 import mewtwo from "./assets/pokemon/mewtwo.png";
@@ -113,6 +113,7 @@ const pokemonCharacters = [
   { id: 21, name: { en: "Ash", he: "אש" }, image: ash },
   { id: 22, name: { en: "Brock", he: "ברוק" }, image: brock },
   { id: 23, name: { en: "Misty", he: "מיסטי" }, image: misty },
+  { id: 24, name: { en: "Lucario", he: "לוקאריו" }, image: lucario },
 ];
 
 // Define UI text translations for both themes
