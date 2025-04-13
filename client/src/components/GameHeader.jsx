@@ -13,7 +13,7 @@ const GameHeader = ({
   initializeGame,
   setGamePhase,
   playerNames = [],
-  gameTheme = "dragonball",
+  gameTheme = "animals",
   isOnline = false,
   roomId = null,
   language = "en",
@@ -22,24 +22,24 @@ const GameHeader = ({
   onTimeUpdate = null,
   matchedBy = {}
 }) => {
-  // Define theme-specific styles
+  // Define theme-specific styles with updated theme names and colors
   const themeStyles = {
-    dragonball: {
-      difficultyText: "text-yellow-400",
+    animals: {
+      difficultyText: "text-green-400",
       statsText: "text-gray-300",
-      currentPlayerGradient: "from-orange-600 to-orange-500",
-      currentPlayerHighlight: "bg-red-500",
+      currentPlayerGradient: "from-green-600 to-green-500",
+      currentPlayerHighlight: "bg-green-500",
       buttonHover: "#374151",
       buttonBg: "bg-gray-800",
       buttonText: "text-gray-100",
-      onlineIndicator: "text-orange-400",
-      roomCode: "bg-orange-900/50",
-      scoreBox: "bg-orange-900/50 border-orange-500/50"
+      onlineIndicator: "text-green-400",
+      roomCode: "bg-green-900/50",
+      scoreBox: "bg-green-900/50 border-green-500/50"
     },
-    pokemon: {
+    flags: {
       difficultyText: "text-blue-400",
       statsText: "text-gray-300",
-      currentPlayerGradient: "from-blue-600 to-yellow-500",
+      currentPlayerGradient: "from-blue-600 to-blue-500",
       currentPlayerHighlight: "bg-blue-500",
       buttonHover: "#1e40af",
       buttonBg: "bg-blue-900",
@@ -50,19 +50,8 @@ const GameHeader = ({
     }
   };
 
-  // Get current theme styles
-  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
-
-  // Debug log playerScores to see what we're getting in online mode
-  useEffect(() => {
-    if (isOnline) {
-      console.log("GameHeader - Online Mode");
-      console.log("PlayerScores:", playerScores);
-      console.log("MatchedBy:", matchedBy);
-      console.log("PlayerNames:", playerNames);
-      console.log("Player Count:", playerCount);
-    }
-  }, [isOnline, playerScores, matchedBy, playerNames, playerCount]);
+  // Get current theme styles with proper fallback
+  const currentTheme = themeStyles[gameTheme] || themeStyles.animals;
 
   // Create a restart handler
   const handleRestart = () => {
@@ -97,7 +86,6 @@ const GameHeader = ({
   const getPlayerData = () => {
     // For online mode, ALWAYS use playerScores from the server
     if (isOnline && Array.isArray(playerScores) && playerScores.length > 0) {
-      console.log("Using online player scores:", playerScores);
       return playerScores.map((player, idx) => {
         // Get player name - either from player object or from playerNames array
         const name = player.name || 
@@ -140,8 +128,28 @@ const GameHeader = ({
   // Get player data
   const playerData = getPlayerData();
   
-  // Debug the player data
-  console.log("Final player data for display:", playerData);
+  // Get localized text with fallbacks
+  const getLocalizedText = (key, section = null) => {
+    try {
+      return getText(gameTheme, language, key, section) || 
+            (language === "en" ? key : key); // Simple fallback to the key itself
+    } catch (e) {
+      return language === "en" ? key : key;
+    }
+  };
+
+  // Determine difficulty label color
+  const getDifficultyColor = () => {
+    switch(difficulty) {
+      case "hard":
+        return "bg-red-600";
+      case "medium":
+        return "bg-blue-600";
+      case "easy":
+      default:
+        return "bg-green-600";
+    }
+  };
 
   return (
     <div className="w-full mb-2 sm:mb-4">
@@ -156,7 +164,7 @@ const GameHeader = ({
             whileHover={{ scale: 1.05, backgroundColor: currentTheme.buttonHover }}
             whileTap={{ scale: 0.95 }}
           >
-            {isOnline ? getText(gameTheme, language, "lobby") : getText(gameTheme, language, "home")}
+            {isOnline ? getLocalizedText("lobby") : getLocalizedText("home")}
           </motion.button>
           <motion.button
             onClick={handleRestart}
@@ -164,24 +172,26 @@ const GameHeader = ({
             whileHover={{ scale: 1.05, backgroundColor: currentTheme.buttonHover }}
             whileTap={{ scale: 0.95 }}
           >
-            {isOnline ? getText(gameTheme, language, "return") : getText(gameTheme, language, "restart")}
+            {isOnline ? getLocalizedText("return") : getLocalizedText("restart")}
           </motion.button>
         </div>
             <div className={`text-xs sm:text-sm font-medium ${currentTheme.difficultyText} py-1`}>
-              {getText(gameTheme, language, "difficulty")} <span className={`${difficulty === "hard" ? "bg-red-600" : difficulty === "medium" ? "bg-orange-600" : "bg-green-600"} py-0.5 px-1 rounded-lg` }> {getText(gameTheme, language, difficulty, "common")}</span>
+              {getLocalizedText("difficulty")} <span className={`${getDifficultyColor()} py-0.5 px-1 rounded-lg`}>
+                {getLocalizedText(difficulty, "common")}
+              </span>
             </div>
           <div className="flex items-center justify-center">
             
            {/* Online indicator */}
            {isOnline && (
               <div className={`ml-2 text-xs px-2 py-0.5 rounded-full ${currentTheme.roomCode} ${currentTheme.onlineIndicator}`}>
-                {getText(gameTheme, language, "online")}
+                {getLocalizedText("online")}
               </div>
             )}
               {/* Room code if online */}
           {isOnline && roomId && (
             <div className={`text-xs ${currentTheme.onlineIndicator} font-mono`}>
-              {getText(gameTheme, language, "room")}: {roomId}
+              {getLocalizedText("room")}: {roomId}
             </div>
           )}
           </div>
@@ -204,7 +214,7 @@ const GameHeader = ({
         {playerData.length > 1 && (
           <div className={`flex flex-col p-2 rounded-lg ${currentTheme.scoreBox} backdrop-blur-sm mb-2 sm:mb-0`}>
             <div className={`text-xs font-medium mb-1 ${currentTheme.difficultyText} text-center`}>
-              {getText(gameTheme, language, "matchedBy")}
+              {getLocalizedText("matchedBy")}
             </div>
             <div className="grid grid-cols-1 gap-1">
               {playerData.map((player) => (
@@ -254,7 +264,7 @@ const GameHeader = ({
       {/* Show current player in single player mode */}
       {playerCount === 1 && (
         <div className={`mt-2 text-xs font-medium text-center ${currentTheme.statsText}`}>
-          {getText(gameTheme, language, "player")}: {getPlayerName(0)}
+          {getLocalizedText("player")}: {getPlayerName(0)}
         </div>
       )}
     </div>

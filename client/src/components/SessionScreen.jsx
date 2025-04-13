@@ -1,42 +1,53 @@
-// src/components/SessionScreen.jsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import socket from "../socket";
+import { getText } from "../themeConfig"; 
 
 const SessionScreen = ({ 
   setGamePhase, 
   gameTheme, 
   difficulty, 
   setOnlineSession,
-  setIsHost
+  setIsHost,
+  language = "en",
 }) => {
   const [playerName, setPlayerName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Define theme-specific styles
+  // Define theme-specific styles with updated theme names
   const themeStyles = {
-    dragonball: {
-      container: "bg-orange-500/20 border-white/20",
-      title: "text-red-400",
-      subtitle: "text-yellow-400",
-      inputFocus: "focus:ring-red-400 focus:border-red-400",
-      buttonGradient: "from-orange-500 to-orange-600",
-      buttonGlow: "rgba(255, 160, 0, 0.5)",
+    animals: {
+      container: "bg-green-900/20 border-green-500/20",
+      title: "text-green-400",
+      subtitle: "text-green-300",
+      inputFocus: "focus:ring-green-400 focus:border-green-400",
+      buttonGradient: "from-green-500 to-green-600",
+      buttonGlow: "rgba(34, 197, 94, 0.5)",
     },
-    pokemon: {
-      container: "bg-blue-500/20 border-white/20",
+    flags: {
+      container: "bg-blue-900/20 border-blue-500/20",
       title: "text-blue-400",
-      subtitle: "text-yellow-400",
+      subtitle: "text-blue-300",
       inputFocus: "focus:ring-blue-400 focus:border-blue-400",
-      buttonGradient: "from-blue-500 to-yellow-500",
-      buttonGlow: "rgba(96, 165, 250, 0.5)",
+      buttonGradient: "from-blue-500 to-blue-600",
+      buttonGlow: "rgba(59, 130, 246, 0.5)",
     }
   };
 
-  // Get current theme styles
-  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+  // Get current theme styles with proper fallback
+  const currentTheme = themeStyles[gameTheme] || themeStyles.animals;
+
+  // Helper function to get localized text with fallback
+  const getLocalizedText = (key, section = null) => {
+    try {
+      return getText(gameTheme, language, key, section) || 
+        (language === "en" ? key : key);
+    } catch (e) {
+      return language === "en" ? key : key;
+    }
+  };
 
   useEffect(() => {
     // Listen for game creation confirmation
@@ -78,7 +89,7 @@ const SessionScreen = ({
 
   const handleCreateGame = () => {
     if (!playerName.trim()) {
-      setError("Please enter your name");
+      setError(language === "en" ? "Please enter your name" : "אנא הזן את שמך");
       return;
     }
 
@@ -93,12 +104,12 @@ const SessionScreen = ({
 
   const handleJoinGame = () => {
     if (!playerName.trim()) {
-      setError("Please enter your name");
+      setError(language === "en" ? "Please enter your name" : "אנא הזן את שמך");
       return;
     }
 
     if (!joinCode.trim()) {
-      setError("Please enter a game code");
+      setError(language === "en" ? "Please enter a game code" : "אנא הזן קוד משחק");
       return;
     }
 
@@ -127,7 +138,7 @@ const SessionScreen = ({
   };
 
   return (
-    <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden`}>
+    <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden ${language === 'he' ? 'rtl' : 'ltr'}`}>
       <div className="absolute -inset-full top-0 left-0 h-64 w-96 bg-white/10 rotate-45 transform translate-x-2/3 translate-y-1/3 z-0 opacity-50"></div>
       <div className="absolute -inset-full top-0 left-0 h-32 w-64 bg-white/5 rotate-12 transform -translate-x-1/3 -translate-y-2/3 z-0"></div>
       
@@ -141,22 +152,25 @@ const SessionScreen = ({
           className={`text-2xl font-bold ${currentTheme.title} mb-4`}
           variants={itemVariants}
         >
-          Online Memory Game
+          {getLocalizedText("onlinePlay")}
         </motion.h1>
         
         <motion.div
-          className="mb-6"
+          className={`mb-6 ${language === 'he' ? 'text-right' : 'text-left'}`}
           variants={itemVariants}
         >
-          <label className="block text-gray-200 text-sm mb-1">Your Name</label>
+          <label className="block text-gray-200 text-sm mb-1">
+            {getLocalizedText("enterYourName")}
+          </label>
           <input
             type="text"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             className={`w-full bg-gray-800/60 border border-gray-700 rounded px-3 py-2 text-white ${currentTheme.inputFocus} focus:outline-none`}
-            placeholder="Enter your name"
+            placeholder={getLocalizedText("enterYourName")}
             maxLength={12}
             disabled={isLoading}
+            dir={language === "en" ? "ltr" : "rtl"}
           />
         </motion.div>
         
@@ -177,14 +191,14 @@ const SessionScreen = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Creating...
+                {language === "en" ? "Creating..." : "יוצר..."}
               </span>
-            ) : "Create New Game"}
+            ) : getLocalizedText("createRoom")}
           </motion.button>
           
           <div className="relative flex items-center">
             <div className="flex-grow border-t border-gray-600"></div>
-            <span className="flex-shrink mx-4 text-gray-400">or</span>
+            <span className="flex-shrink mx-4 text-gray-400">{language === "en" ? "or" : "או"}</span>
             <div className="flex-grow border-t border-gray-600"></div>
           </div>
           
@@ -194,9 +208,10 @@ const SessionScreen = ({
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               className={`flex-1 bg-gray-800/60 border border-gray-700 rounded px-3 py-2 text-white ${currentTheme.inputFocus} focus:outline-none uppercase`}
-              placeholder="Enter game code"
+              placeholder={getLocalizedText("enterRoomCode")}
               maxLength={6}
               disabled={isLoading}
+              dir="ltr" // Always LTR for code inputs
             />
             <motion.button
               onClick={handleJoinGame}
@@ -210,7 +225,7 @@ const SessionScreen = ({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-              ) : "Join"}
+              ) : getLocalizedText("joinRoom")}
             </motion.button>
           </div>
         </motion.div>
@@ -233,7 +248,7 @@ const SessionScreen = ({
           variants={itemVariants}
           disabled={isLoading}
         >
-          Back
+          {getLocalizedText("buttonBack")}
         </motion.button>
       </motion.div>
     </div>

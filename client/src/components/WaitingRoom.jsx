@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useSocket from "../hooks/useSocket";
 import {
-  dragonballCharacters,
-  pokemonCharacters,
+  animalCharacters,
+  flagCharacters,
   themeStyles,
   getText,
   getCharacterName,
@@ -48,7 +48,7 @@ const WaitingRoom = ({
   const socket = useSocket("WaitingRoom", true);
 
   // Get theme styles from centralized config
-  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.dragonball;
+  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.animals;
 
   // Create theme-specific styles using our centralized theme configuration
   const currentTheme = {
@@ -59,14 +59,24 @@ const WaitingRoom = ({
     buttonGlow: currentThemeConfig.animations.glow,
     playerCardBg: "bg-gray-800/60",
     playerCardHost:
-      gameTheme === "dragonball" ? "bg-orange-900/60" : "bg-blue-900/60",
+      gameTheme === "animals" ? "bg-green-900/60" : "bg-blue-900/60",
     messageAuthor:
-      gameTheme === "dragonball" ? "text-orange-400" : "text-blue-400",
+      gameTheme === "animals" ? "text-green-400" : "text-blue-400",
     messageContent: "text-gray-300",
     inputFocus:
-      gameTheme === "dragonball"
-        ? "focus:ring-orange-400 focus:border-orange-400"
+      gameTheme === "animals"
+        ? "focus:ring-green-400 focus:border-green-400"
         : "focus:ring-blue-400 focus:border-blue-400",
+  };
+
+  // Helper function to get localized text with fallback
+  const getLocalizedText = (key, section = null) => {
+    try {
+      return getText(gameTheme, language, key, section) || 
+        (language === "en" ? key : key);
+    } catch (e) {
+      return language === "en" ? key : key;
+    }
   };
 
   // Memoize showNotification function - DEFINE BEFORE IT'S USED
@@ -100,15 +110,15 @@ const WaitingRoom = ({
       .writeText(roomId)
       .then(() => {
         showNotification(
-          getText(gameTheme, language, "roomCode") +
+          getLocalizedText("roomCode") +
             " " +
-            getText(gameTheme, language, "success", "common")
+            getLocalizedText("success", "common")
         );
       })
       .catch((err) => {
         console.error("Could not copy room code:", err);
       });
-  }, [roomId, showNotification, gameTheme, language]);
+  }, [roomId, showNotification]);
 
   // Memoize initializeGame function
   const initializeGame = useCallback(() => {
@@ -171,13 +181,13 @@ const WaitingRoom = ({
     // Check if there are at least 2 players
     if (players.length < 2) {
       console.log("Cannot start game with fewer than 2 players");
-      showNotification(getText(gameTheme, language, "needMorePlayers") || "Need at least 2 players to start");
+      showNotification(getLocalizedText("needMorePlayers") || "Need at least 2 players to start");
       return;
     }
 
     // Generate shuffled cards
     const characterSet =
-      gameTheme === "dragonball" ? dragonballCharacters : pokemonCharacters;
+      gameTheme === "animals" ? animalCharacters : flagCharacters;
 
     // Determine number of pairs based on difficulty
     let numPairs;
@@ -280,7 +290,7 @@ const WaitingRoom = ({
           // If timer reaches zero, leave the room
           if (prev <= 1) {
             clearInterval(roomTimerRef.current);
-            showNotification(getText(gameTheme, language, "roomExpired") || "Room has expired");
+            showNotification(getLocalizedText("roomExpired") || "Room has expired");
             setTimeout(() => {
               handleLeaveRoom();
             }, 2000);
@@ -297,7 +307,7 @@ const WaitingRoom = ({
         clearInterval(roomTimerRef.current);
       }
     };
-  }, [roomTimerActive, gameTheme, language, handleLeaveRoom, showNotification]);
+  }, [roomTimerActive, handleLeaveRoom, showNotification]);
 
   // Set initial data from multiplayerData
   useEffect(() => {
@@ -347,11 +357,6 @@ const WaitingRoom = ({
     }
   }, [messages]);
 
-  // Debug log to track player state
-  useEffect(() => {
-    console.log("PLAYER STATE CHANGED:", players);
-  }, [players]);
-
   // Set up socket event listeners
   useEffect(() => {
     // Clean up any existing listeners to prevent duplicates
@@ -379,7 +384,7 @@ const WaitingRoom = ({
       // Reset room timer when a new player joins (only for host)
       if (isHost && roomTimer < 4 * 60) {
         setRoomTimer(5 * 60); // Reset to 5 minutes
-        showNotification(getText(gameTheme, language, "timerReset") || "Room timer reset");
+        showNotification(getLocalizedText("timerReset") || "Room timer reset");
       }
     });
 
@@ -407,7 +412,7 @@ const WaitingRoom = ({
         setGameTheme(data.gameTheme);
       }
       
-      showNotification(getText(gameTheme, language, "joinedRoom") || "Joined room successfully");
+      showNotification(getLocalizedText("joinedRoom") || "Joined room successfully");
     });
 
     // PLAYER LEFT EVENT HANDLER
@@ -432,14 +437,14 @@ const WaitingRoom = ({
       // If we're not the host, check if we became the host
       if (!isHost && data.players.find((p) => p.id === socket.socket?.id)?.isHost) {
         setIsHost(true);
-        showNotification(getText(gameTheme, language, "hostStartPrompt"));
+        showNotification(getLocalizedText("hostStartPrompt"));
       }
     });
 
     // Add room expiration listener
     socket.addEventListener("roomExpired", (data) => {
       console.log("Room expired:", data);
-      showNotification(getText(gameTheme, language, "roomExpired") || "Room has expired");
+      showNotification(getLocalizedText("roomExpired") || "Room has expired");
       
       // Exit to lobby after a delay
       setTimeout(() => {
@@ -471,9 +476,9 @@ const WaitingRoom = ({
         console.log(`Updating difficulty based on server event: ${difficulty} -> ${data.difficulty}`);
         setDifficulty(data.difficulty);
         showNotification(
-          getText(gameTheme, language, "difficultyChanged") + 
+          getLocalizedText("difficultyChanged") + 
           ": " + 
-          getText(gameTheme, language, data.difficulty, "common")
+          getLocalizedText(data.difficulty, "common")
         );
       }
     });
@@ -554,7 +559,7 @@ const WaitingRoom = ({
         setGameTheme(data.gameTheme);
       }
       
-      showNotification(getText(gameTheme, language, "gameReset"));
+      showNotification(getLocalizedText("gameReset"));
     });
     
     // Cleanup function
@@ -578,7 +583,19 @@ const WaitingRoom = ({
     setPlayerNames
   ]);
 
-  // KEEPING THE UI EXACTLY THE SAME AS PROVIDED
+  // Determine difficulty label color
+  const getDifficultyColor = () => {
+    switch(difficulty) {
+      case "hard":
+        return "bg-red-600";
+      case "medium":
+        return "bg-blue-600";
+      case "easy":
+      default:
+        return "bg-green-600";
+    }
+  };
+
   return (
     <div
       className={`text-center max-w-4xl mx-auto p-4 ${
@@ -635,12 +652,12 @@ const WaitingRoom = ({
           className="flex justify-between items-center mb-4"
         >
           <h1 className={`text-2xl font-bold ${currentTheme.title}`}>
-            {getText(gameTheme, language, "waitingRoom")}
+            {getLocalizedText("waitingRoom")}
           </h1>
           <div className="flex items-center space-x-2">
             <div className="px-3 py-1 bg-gray-800 rounded-lg text-sm text-white flex items-center">
               <span className="mr-2">
-                {getText(gameTheme, language, "timeLeft")}:{" "}
+                {getLocalizedText("timeLeft")}:{" "}
                 <span
                   className={`font-mono font-bold ${
                     roomTimer < 60 ? "text-red-400" : ""
@@ -653,7 +670,7 @@ const WaitingRoom = ({
             {/* Room code with copy button */}
             <div className="px-3 py-1 bg-gray-800 rounded-lg text-sm text-white flex items-center">
               <span className="mr-2">
-                {getText(gameTheme, language, "roomCode")}:{" "}
+                {getLocalizedText("roomCode")}:{" "}
                 <span className="font-mono font-bold">{roomId}</span>
               </span>
 
@@ -682,18 +699,16 @@ const WaitingRoom = ({
               {/* Theme indicator */}
               <span
                 className={`ml-1 px-1.5 py-0.5 rounded-full text-xs text-white ${
-                  gameTheme === "dragonball" ? "bg-orange-600" : "bg-blue-600"
+                  gameTheme === "animals" ? "bg-green-600" : "bg-blue-600"
                 }`}
               >
-                {gameTheme === "dragonball"
-                  ? getText(gameTheme, language, "cardInitials")
-                  : getText(gameTheme, language, "cardInitials")}
+                {getLocalizedText("cardInitials")}
               </span>
             </div>
 
             <div className="px-3 py-1 bg-gray-800 rounded-lg text-sm text-white">
               <span className="text-xs">
-                {players.length}/4 {getText(gameTheme, language, "players")}
+                {players.length}/4 {getLocalizedText("players")}
               </span>
             </div>
 
@@ -703,7 +718,7 @@ const WaitingRoom = ({
               className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded-lg text-sm text-white"
               onClick={handleLeaveRoom}
             >
-              {getText(gameTheme, language, "leave", "common")}
+              {getLocalizedText("leave", "common")}
             </motion.button>
           </div>
         </div>
@@ -719,13 +734,13 @@ const WaitingRoom = ({
                 language === "he" ? "text-right" : "text-left"
               }`}
             >
-              {getText(gameTheme, language, "players")} ({players.length}/4)
+              {getLocalizedText("players")} ({players.length}/4)
             </h2>
 
             {/* Player list */}
             {players.length === 0 ? (
               <div className="p-3 rounded-lg bg-gray-800/60 text-gray-400 text-center">
-                {getText(gameTheme, language, "noPlayersYet") || "No players yet"}
+                {getLocalizedText("noPlayersYet") || "No players yet"}
               </div>
             ) : (
               <div className="space-y-2">
@@ -755,8 +770,8 @@ const WaitingRoom = ({
                         </div>
                         <div className="text-xs text-gray-400">
                           {player.isHost
-                            ? getText(gameTheme, language, "host")
-                            : getText(gameTheme, language, "player")}
+                            ? getLocalizedText("host")
+                            : getLocalizedText("player")}
                         </div>
                       </div>
                     </div>
@@ -771,23 +786,12 @@ const WaitingRoom = ({
               }`}
             >
               <span className="text-sm text-gray-400">
-                {getText(gameTheme, language, "difficulty")}:{" "}
+                {getLocalizedText("difficulty")}:{" "}
               </span>
               <span
-                className={`px-2 py-0.5 rounded-full text-xs text-white ${
-                  difficulty === "easy"
-                    ? "bg-green-600"
-                    : difficulty === "medium"
-                    ? "bg-orange-600"
-                    : "bg-red-600"
-                }`}
+                className={`px-2 py-0.5 rounded-full text-xs text-white ${getDifficultyColor()}`}
               >
-                {getText(
-                  gameTheme,
-                  language,
-                  difficulty,
-                  "common"
-                )}
+                {getLocalizedText(difficulty, "common")}
               </span>
             </div>
 
@@ -803,14 +807,14 @@ const WaitingRoom = ({
                   onClick={handleStartGame}
                   disabled={players.length < 2}
                 >
-                  {getText(gameTheme, language, "buttonStart")}
+                  {getLocalizedText("buttonStart")}
                 </motion.button>
                 {/* Additional help text */}
                 <div className="mt-2 text-sm text-center">
                   <div className="text-yellow-400">
                     {players.length < 2 && (
                       <div className="text-sm">
-                        {getText(gameTheme, language, "needMorePlayers") || "Need at least 2 players to start"}
+                        {getLocalizedText("needMorePlayers") || "Need at least 2 players to start"}
                       </div>
                     )}
                   </div>
@@ -827,7 +831,7 @@ const WaitingRoom = ({
             >
               {messages.length === 0 ? (
                 <div className="text-gray-500 text-center py-4">
-                  {getText(gameTheme, language, "noMessages")}
+                  {getLocalizedText("noMessages")}
                 </div>
               ) : (
                 messages.map((msg, index) => (
@@ -852,7 +856,8 @@ const WaitingRoom = ({
                   value={chatMessage}
                   onChange={(e) => setChatMessage(e.target.value)}
                   className={`flex-1 bg-gray-700/70 border border-gray-600 rounded-l px-3 py-2 text-white focus:outline-none ${currentTheme.inputFocus}`}
-                  placeholder={getText(gameTheme, language, "typeMessage")}
+                  placeholder={getLocalizedText("typeMessage")}
+                  dir={language === "en" ? "ltr" : "rtl"}
                 />
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -860,7 +865,7 @@ const WaitingRoom = ({
                   type="submit"
                   className={`bg-gradient-to-r ${currentTheme.buttonGradient} px-4 rounded-r text-white`}
                 >
-                  {getText(gameTheme, language, "send", "common")}
+                  {getLocalizedText("send", "common")}
                 </motion.button>
               </form>
             </div>
@@ -869,9 +874,9 @@ const WaitingRoom = ({
 
         <div className="mt-4 text-sm text-gray-400">
           {isHost ? (
-            <p>{getText(gameTheme, language, "hostStartPrompt")}</p>
+            <p>{getLocalizedText("hostStartPrompt")}</p>
           ) : (
-            <p>{getText(gameTheme, language, "waitingForHost")}</p>
+            <p>{getLocalizedText("waitingForHost")}</p>
           )}
         </div>
       </motion.div>

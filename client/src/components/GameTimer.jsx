@@ -3,39 +3,39 @@ import { motion } from "framer-motion";
 import { getText } from "../themeConfig";
 
 const GameTimer = ({
-  gameTheme = "dragonball",
+  gameTheme = "animals",
   language = "en",
   isActive = false,
   onTimeUpdate = null,
   resetKey = 0,
   size = "medium", // small, medium, large
-  isOnline = false // Add isOnline prop
+  isOnline = false
 }) => {
   // State for tracking time
   const [seconds, setSeconds] = useState(0);
   const intervalRef = useRef(null);
   const lastUpdateRef = useRef(0); // Keep track of last time we updated parent
   
-  // Define theme-specific styles
+  // Define theme-specific styles with updated theme names and colors
   const themeStyles = {
-    dragonball: {
-      container: "bg-orange-900/30",
-      text: "text-yellow-400",
-      icon: "text-orange-400",
-      border: "border-orange-800/50",
-      onlineIndicator: "bg-orange-600"
+    animals: {
+      container: "bg-green-900/30",
+      text: "text-green-400",
+      icon: "text-green-400",
+      border: "border-green-800/50",
+      onlineIndicator: "bg-green-600"
     },
-    pokemon: {
+    flags: {
       container: "bg-blue-900/30",
       text: "text-blue-400",
-      icon: "text-yellow-400",
+      icon: "text-blue-400",
       border: "border-blue-800/50",
       onlineIndicator: "bg-blue-600"
     }
   };
 
-  // Get current theme styles
-  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
+  // Get current theme styles with proper fallback
+  const currentTheme = themeStyles[gameTheme] || themeStyles.animals;
   
   // Size-based classes
   const sizeClasses = {
@@ -46,6 +46,9 @@ const GameTimer = ({
   
   // Format seconds into mm:ss
   const formatTime = (totalSeconds) => {
+    if (typeof totalSeconds !== 'number' || isNaN(totalSeconds)) {
+      totalSeconds = 0;
+    }
     const minutes = Math.floor(totalSeconds / 60);
     const remainingSeconds = totalSeconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
@@ -104,6 +107,16 @@ const GameTimer = ({
     }
   }, [resetKey, onTimeUpdate]);
   
+  // Get localized text with fallbacks
+  const getLocalizedText = (key, section = null) => {
+    try {
+      return getText(gameTheme, language, key, section) || 
+        (language === "en" ? "Time" : "זמן");
+    } catch (e) {
+      return language === "en" ? "Time" : "זמן";
+    }
+  };
+  
   return (
     <motion.div 
       className={`rounded-lg ${currentTheme.container} ${currentTheme.border} border shadow-md inline-flex items-center ${sizeClasses[size]}`}
@@ -113,12 +126,12 @@ const GameTimer = ({
     >
       <span className={`font-mono ${currentTheme.icon} mr-1.5`}>⏱</span>
       <span className={`font-medium ${currentTheme.text}`}>
-        {getText(gameTheme, language, "time", "common") || "Time"}: {formatTime(seconds)}
+        {getLocalizedText("time", "common")}: {formatTime(seconds)}
       </span>
       
       {/* Add online indicator dot if in online mode */}
       {isOnline && (
-        <span className={`ml-1 w-2 h-2 rounded-full ${currentTheme.onlineIndicator}`}></span>
+        <span className={`ml-1 w-2 h-2 rounded-full ${currentTheme.onlineIndicator} animate-pulse`}></span>
       )}
     </motion.div>
   );

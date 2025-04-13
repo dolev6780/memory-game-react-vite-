@@ -22,7 +22,7 @@ const GameBoard = ({
   setGamePhase,
   playerNames = [],
   matchedBy = {}, 
-  gameTheme = "dragonball",
+  gameTheme = "animals",
   setGameTheme,
   isOnline = false,
   language = "he",
@@ -33,13 +33,13 @@ const GameBoard = ({
   roomId = null
 }) => {
   // Get theme styles from centralized config
-  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.dragonball;
+  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.animals;
 
   // Create theme-specific styles for this component
   const currentTheme = {
-    container: gameTheme === "dragonball" ? "bg-black/40" : "bg-blue-900/40",
-    turnNotificationGradient: gameTheme === "dragonball" ? "from-orange-600 to-orange-500" : "from-blue-600 to-yellow-500",
-    turnNotificationBorder: gameTheme === "dragonball" ? "border-yellow-300" : "border-blue-300",
+    container: gameTheme === "animals" ? "bg-green-950/40" : "bg-blue-950/40",
+    turnNotificationGradient: gameTheme === "animals" ? "from-green-600 to-green-500" : "from-blue-600 to-blue-500",
+    turnNotificationBorder: gameTheme === "animals" ? "border-green-300" : "border-blue-300",
   };
   
   // State to track container size
@@ -51,19 +51,6 @@ const GameBoard = ({
   
   // First render flag to avoid infinite update loops
   const isFirstRender = useRef(true);
-
-  // Debug for online mode
-  useEffect(() => {
-    if (isOnline) {
-      console.log("GameBoard - Online Mode Data:");
-      console.log("PlayerScores:", playerScores);
-      console.log("MatchedBy:", matchedBy);
-      console.log("PlayerNames:", playerNames);
-      console.log("Player Count:", playerCount);
-      console.log("Cards Length:", cards.length);
-      console.log("Matched Pairs:", matchedPairs);
-    }
-  }, [isOnline, playerScores, matchedBy, playerNames, playerCount, cards.length, matchedPairs]);
 
   // One-time effect for theme synchronization on mount
   useEffect(() => {
@@ -162,6 +149,16 @@ const GameBoard = ({
     return null;
   };
 
+  // Get translated text for current player's turn
+  const getPlayerTurnText = () => {
+    const playerName = getCurrentPlayerName();
+    const turnText = getText(gameTheme, language, "playerTurn") || (language === "en" ? "'s Turn" : "תורו של");
+    
+    return language === "en" ? 
+      `${playerName}${turnText}` : 
+      `${turnText} ${playerName}`;
+  };
+
   return (
     <div 
       className={`flex flex-col items-center w-full max-h-screen p-2 sm:p-3 ${currentTheme.container} rounded-lg backdrop-blur-sm shadow-lg overflow-hidden ${language === 'he' ? 'rtl' : 'ltr'}`}
@@ -195,7 +192,20 @@ const GameBoard = ({
         />
       </div>
       
-     
+      {/* Player turn notification */}
+      <AnimatePresence>
+        {showPlayerTurn && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className={`bg-gradient-to-r ${currentTheme.turnNotificationGradient} rounded-lg px-6 py-2 text-white font-bold shadow-lg border-2 ${currentTheme.turnNotificationBorder} absolute top-16 z-50`}
+          >
+            {getPlayerTurnText()}
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Game board - with dynamic scaling */}
       <div 
@@ -229,12 +239,13 @@ const GameBoard = ({
                 styles={styles}
                 gameTheme={gameTheme}
                 language={language}
-                matchedByText={getText(gameTheme, language, "matchedBy")}
+                matchedByText={getText(gameTheme, language, "matchedBy") || (language === "en" ? "Matched by" : "הותאם על ידי")}
               />
             );
           })}
         </div>
       </div>
+      <a href="http://www.freepik.com">Designed by Luis_Molinero / Freepik</a>
     </div>
   );
 };

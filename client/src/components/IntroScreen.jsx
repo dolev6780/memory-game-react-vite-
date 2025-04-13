@@ -1,8 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { 
-  dragonballBackgroundImage, 
-  pokemonBackgroundImage, 
+  animalsBackgroundImage, 
+  flagsBackgroundImage, 
   themeStyles, 
   getText 
 } from "../themeConfig";
@@ -17,17 +17,17 @@ const IntroScreen = ({
   toggleLanguage
 }) => {
   // Get theme styles from centralized config
-  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.dragonball;
+  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.animals;
 
   // Create theme-specific styles for this component
   const currentTheme = {
-    container: gameTheme === "dragonball" ? "bg-orange-950/60" : "bg-blue-950/60",
+    container: gameTheme === "animals" ? "bg-green-950/60" : "bg-blue-950/60",
     title: currentThemeConfig.text.title,
     subTitle: currentThemeConfig.text.subtitle,
-    button: currentThemeConfig.colors.buttonGradient,
-    selected: gameTheme === "dragonball" ? "border-red-500" : "border-blue-500",
-    onlineHover: gameTheme === "dragonball" ? "hover:bg-orange-700" : "hover:bg-blue-700",
-    localHover: gameTheme === "dragonball" ? "hover:bg-yellow-700" : "hover:bg-yellow-700",
+    button: `from-${currentThemeConfig.colors.primary} to-${currentThemeConfig.colors.secondary}`,
+    selected: gameTheme === "animals" ? "border-green-500" : "border-blue-500",
+    onlineHover: gameTheme === "animals" ? "hover:bg-green-700" : "hover:bg-blue-700",
+    localHover: gameTheme === "animals" ? "hover:bg-yellow-700" : "hover:bg-yellow-700",
   };
 
   return (
@@ -53,18 +53,18 @@ const IntroScreen = ({
           <motion.div
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => handleThemeSelect("dragonball")}
+            onClick={() => handleThemeSelect("animals")}
             className={`cursor-pointer rounded-lg overflow-hidden border-4 ${
-              gameTheme === "dragonball"
-                ? "border-red-500"
+              gameTheme === "animals"
+                ? "border-green-500"
                 : "border-transparent"
             } transition-all duration-200`}
           >
             <div className="relative h-32 sm:h-40">
-              <img src={dragonballBackgroundImage} alt="" className="w-full h-full object-cover"/>
+              <img src={animalsBackgroundImage} alt="" className="w-full h-full object-cover"/>
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/70">
                 <div className="absolute bottom-0 w-full p-2 text-center">
-                  <h3 className="font-bold text-white">{getText("dragonball", language, "themeTitle")}</h3>
+                  <h3 className="font-bold text-white">{getText("animals", language, "themeTitle")}</h3>
                 </div>
               </div>
             </div>
@@ -73,18 +73,18 @@ const IntroScreen = ({
           <motion.div
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => handleThemeSelect("pokemon")}
+            onClick={() => handleThemeSelect("flags")}
             className={`cursor-pointer rounded-lg overflow-hidden border-4 ${
-              gameTheme === "pokemon"
+              gameTheme === "flags"
                 ? "border-blue-500"
                 : "border-transparent"
             } transition-all duration-200`}
           >
             <div className="relative h-32 sm:h-40">
-              <img src={pokemonBackgroundImage} alt="" className="w-full h-full object-cover"/>
+              <img src={flagsBackgroundImage} alt="" className="w-full h-full object-cover"/>
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/70">
                 <div className="absolute bottom-0 w-full p-2 text-center">
-                  <h3 className="font-bold text-white">{getText("pokemon", language, "themeTitle")}</h3>
+                  <h3 className="font-bold text-white">{getText("flags", language, "themeTitle")}</h3>
                 </div>
               </div>
             </div>

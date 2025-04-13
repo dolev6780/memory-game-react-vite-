@@ -3,13 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   themeStyles,
   getText,
-  getDifficultyName,
-  one,
-  two,
-  three,
-  four,
-  pokeball,
 } from "../themeConfig";
+import paw from '../assets/paw.png'
+import earth from '../assets/earth.png'
 
 const PlayerSelectScreen = ({
   difficulty,
@@ -20,16 +16,15 @@ const PlayerSelectScreen = ({
   handleStartGame,
   playerNames = [],
   setPlayerNames,
-  gameTheme = "dragonball",
+  gameTheme = "animals",
   language = "he",
-  toggleLanguage,
 }) => {
   // State for validation
   const [nameError, setNameError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   
   // Get theme styles from centralized config
-  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.dragonball;
+  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.animals;
 
   // Create theme-specific styles for this component
   const currentTheme = {
@@ -37,19 +32,19 @@ const PlayerSelectScreen = ({
     title: currentThemeConfig.text.title,
     subtitle: currentThemeConfig.text.subtitle,
     playerBox:
-      gameTheme === "dragonball"
+      gameTheme === "animals"
         ? "bg-yellow-900/30 border-yellow-500/50"
         : "bg-blue-900/30 border-blue-500/50",
-    buttonGradient: currentThemeConfig.colors.buttonGradient,
+    buttonColor: currentThemeConfig.colors.buttonColor,
     buttonGlow: currentThemeConfig.animations.glow,
-    selectedCount: gameTheme === "dragonball" ? "bg-red-500" : "bg-blue-500",
+    selectedCount: gameTheme === "animals" ? "bg-yellow-500" : "bg-blue-500",
     inputFocus:
-      gameTheme === "dragonball"
-        ? "focus:ring-red-400 focus:border-red-400"
+      gameTheme === "animals"
+        ? "focus:ring-yellow-400 focus:border-red-400"
         : "focus:ring-blue-400 focus:border-blue-400",
     difficultyActive:
-      gameTheme === "dragonball"
-        ? "bg-red-500 text-white"
+      gameTheme === "animals"
+        ? "bg-yellow-500 text-white"
         : "bg-blue-500 text-white",
     difficultyInactive: "bg-gray-700/70 text-gray-200 hover:bg-gray-700",
     error: "bg-red-500/20 border border-red-500 text-red-200"
@@ -268,9 +263,9 @@ const PlayerSelectScreen = ({
               >
                 <img
                   src={
-                    gameTheme === "dragonball"
-                      ? [one, two, three, four][i]
-                      : pokeball
+                    gameTheme === "animals"
+                      ? paw
+                      : earth
                   }
                   alt={`${count} ${getText(
                     gameTheme,
@@ -360,7 +355,7 @@ const PlayerSelectScreen = ({
           </motion.button>
           <motion.button
             onClick={handleValidatedStart}
-            className={`px-6 py-2 bg-gradient-to-r ${currentTheme.buttonGradient} text-white font-medium rounded-lg shadow-md`}
+            className={`px-6 py-2 bg-gradient-to-b ${currentTheme.buttonColor} text-white font-medium rounded-lg shadow-md`}
             whileHover={{
               scale: 1.05,
               boxShadow: `0 0 15px ${currentTheme.buttonGlow}`,

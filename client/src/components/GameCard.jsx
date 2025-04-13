@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { themeStyles } from "../themeConfig";
+import paw from '../assets/paw.png';
+import earth from '../assets/earth.png';
 
 const GameCard = ({
   card,
@@ -9,37 +10,36 @@ const GameCard = ({
   isMatched,
   handleCardClick,
   styles,
-  gameTheme = "dragonball",
+  gameTheme = "animals",
   language = "he",
   matchedByText = "Matched by",
 }) => {
-  // Get theme styles from centralized config
-  const currentThemeConfig = themeStyles[gameTheme] || themeStyles.dragonball;
-
-  // Define theme-specific styles
+  // Define theme-specific styles with updated themes
   const cardStyles = {
-    dragonball: {
-      cardGradient: "linear-gradient(135deg, #ff9800, #e65100)",
-      cardBorder: "2px solid #e65100",
-      circleBg: "bg-orange-600",
-      matchedBadgeBg: "bg-orange-500 bg-opacity-70",
-      initials: "DB"
+    animals: {
+      cardGradient: "linear-gradient(135deg, #22c55e, #16a34a)",
+      cardBorder: "2px solid #15803d",
+      circleBg: "bg-green-600",
+      matchedBadgeBg: "bg-green-500 bg-opacity-70",
+      logo: paw,
+      logoAlt: "Paw",
+      imageFit: "object-cover" // Fill the card for animals (may crop)
     },
-    pokemon: {
+    flags: {
       cardGradient: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
       cardBorder: "2px solid #1e40af",
-      circleBg: "bg-yellow-500",
+      circleBg: "bg-blue-600",
       matchedBadgeBg: "bg-blue-600 bg-opacity-70",
-      initials: "PK"
+      logo: earth,
+      logoAlt: "Earth",
+      imageFit: "object-contain" // Show entire flag without cropping
     },
   };
 
-  // IMPORTANT: Use the card's theme if available, otherwise fall back to the game theme
-  // This ensures cards are rendered with their intended theme regardless of client settings
   const cardTheme = card.cardTheme || gameTheme;
 
-  // Get current theme styles
-  const currentTheme = cardStyles[cardTheme] || cardStyles.dragonball;
+  // Get current theme styles with proper fallback
+  const currentTheme = cardStyles[cardTheme] || cardStyles.animals;
 
   // Card styling with 3D flip effect
   const cardInnerStyles = {
@@ -91,18 +91,37 @@ const GameCard = ({
             ...cardFaceStyles,
             background: currentTheme.cardGradient,
             border: currentTheme.cardBorder,
+            overflow: "hidden" // Add this to contain the shine effect
           }}
         >
+          {/* Card shine effect */}
+          <div style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "40%",
+            background: "linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(255,255,255,0))",
+            borderRadius: "8px 8px 0 0"
+          }} />
+          
+          {/* Logo container */}
           <div
-            className={`rounded-full ${currentTheme.circleBg} flex items-center justify-center font-bold text-white shadow-inner`}
+            className={`rounded-full ${currentTheme.circleBg} flex items-center justify-center shadow-inner`}
             style={{
-              width: "50%",
-              height: "50%",
-              fontSize: styles.fontSize?.title || "1rem",
-              boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3)",
+              width: "60%",
+              height: "60%",
+              boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)",
+              padding: "12%",
+              zIndex: 2
             }}
           >
-            {currentTheme.initials}
+            {/* Theme logo instead of initials */}
+            <img 
+              src={currentTheme.logo} 
+              alt={currentTheme.logoAlt}
+              className="w-full h-full object-contain"
+            />
           </div>
         </div>
 
@@ -110,7 +129,7 @@ const GameCard = ({
         <div
           style={{
             ...cardFaceStyles,
-            backgroundColor: "#f5f5f5",
+            backgroundColor: cardTheme === "flags" ? "#f8fafc" : "#000", // Light background for flags, dark for animals
             transform: "rotateY(180deg)",
             border: "2px solid #e0e0e0",
             overflow: "hidden",
@@ -118,20 +137,27 @@ const GameCard = ({
         >
           {/* Image with darkened overlay for matched cards */}
           <div className="relative w-full h-full">
-            <img
-              src={card.image}
-              alt={displayName}
-              className={`w-full h-full object-cover ${
-                isMatched ? "brightness-75" : ""
-              }`}
-            />
+            {/* Image with theme-specific fitting */}
+            <div className="w-full h-full flex items-center justify-center bg-white">
+              <img
+                src={card.image}
+                alt={displayName}
+                className={`w-full h-full ${currentTheme.imageFit} ${
+                  isMatched ? "brightness-75" : ""
+                }`}
+                style={{
+                  padding: cardTheme === "flags" ? "10px" : "0", // Add padding for flags
+                  backgroundColor: cardTheme === "flags" ? "white" : "transparent" // White background for flags
+                }}
+              />
+            </div>
 
             {/* Card name at the bottom */}
             <div
               className="absolute bottom-0 w-full bg-gradient-to-t from-black to-transparent text-white text-center py-1 px-1"
               style={{
                 fontSize: styles.fontSize?.name || "0.75rem",
-                direction: "ltr",
+                direction: language === "he" ? "rtl" : "ltr", // Fixed direction based on language
               }}
             >
               {displayName}
@@ -141,13 +167,14 @@ const GameCard = ({
             {isMatched && card.matchedBy && (
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div
-                  className={`${currentTheme.matchedBadgeBg} text-white px-3 py-1.5 rounded-md shadow-lg text-center font-bold`}
+                  className={`${currentTheme.matchedBadgeBg} text-white  rounded-md shadow-lg text-center font-bold px-2 py-1`}
                   style={{
                     fontSize: styles.fontSize?.name || "0.75rem",
-                    direction: "ltr",
+                    direction: language === "he" ? "rtl" : "ltr",
                   }}
                 >
-                 {card.matchedBy}
+                  {/* Add the "Matched by" text before the player name */}
+               {card.matchedBy}
                 </div>
               </div>
             )}

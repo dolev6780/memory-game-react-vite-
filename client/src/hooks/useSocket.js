@@ -1,13 +1,6 @@
-// src/hooks/useSocket.js
 import { useEffect, useCallback, useRef } from 'react';
 import socketService from '../services/socketService';
 
-/**
- * Custom hook for using the socket service in components
- * @param {string} componentId - Unique identifier for the component
- * @param {boolean} autoConnect - Whether to automatically connect to the socket
- * @returns {Object} - Socket-related utilities
- */
 const useSocket = (componentId, autoConnect = false) => {
   // Use a ref to track if the component is mounted
   const isMountedRef = useRef(true);

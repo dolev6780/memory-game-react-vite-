@@ -11,7 +11,7 @@ const GameOverScreen = ({
   initializeGame,
   setGamePhase,
   playerNames = [],
-  gameTheme = "dragonball",
+  gameTheme = "animals",
   isOnline = false,
   roomId = null,
   language = "en",
@@ -20,46 +20,38 @@ const GameOverScreen = ({
   // Add notification state
   const [notification, setNotification] = useState(null);
 
-  // Define theme-specific styles
+  // Define theme-specific styles with updated themes
   const themeStyles = {
-    dragonball: {
-      container: "bg-orange-500/20 border-white/20",
-      title: "text-yellow-400",
+    animals: {
+      container: "bg-green-900/20 border-green-500/20",
+      title: "text-green-400",
       subtitle: "text-gray-200",
-      sectionTitle: "text-yellow-300",
+      sectionTitle: "text-green-300",
       resultsBg: "bg-gray-800/60",
-      winnerGradient: "from-orange-600 to-orange-500",
-      winnerTile: "bg-yellow-900/50 text-yellow-200",
+      winnerGradient: "from-green-600 to-green-500",
+      winnerTile: "bg-green-900/50 text-green-200",
       loserTile: "bg-gray-700/50 text-gray-300",
-      buttonGradient: "from-orange-500 to-orange-600",
-      buttonGlow: "rgba(255, 160, 0, 0.5)",
-      titleAnimation: ["0 0 8px rgba(255,0,0,0.5)", "0 0 16px rgba(255,0,0,0.8)", "0 0 8px rgba(255,0,0,0.5)"]
+      buttonGradient: "from-green-500 to-green-600",
+      buttonGlow: "rgba(34, 197, 94, 0.5)",
+      titleAnimation: ["0 0 8px rgba(34, 197, 94, 0.5)", "0 0 16px rgba(34, 197, 94, 0.8)", "0 0 8px rgba(34, 197, 94, 0.5)"]
     },
-    pokemon: {
-      container: "bg-blue-500/20 border-white/20",
+    flags: {
+      container: "bg-blue-900/20 border-blue-500/20",
       title: "text-blue-400",
       subtitle: "text-gray-200",
-      sectionTitle: "text-yellow-300",
+      sectionTitle: "text-blue-300",
       resultsBg: "bg-blue-900/60",
-      winnerGradient: "from-blue-600 to-yellow-500",
-      winnerTile: "bg-blue-900/50 text-yellow-200",
+      winnerGradient: "from-blue-600 to-blue-500",
+      winnerTile: "bg-blue-900/50 text-blue-200",
       loserTile: "bg-gray-700/50 text-gray-300",
-      buttonGradient: "from-blue-500 to-yellow-500",
-      buttonGlow: "rgba(96, 165, 250, 0.5)",
-      titleAnimation: ["0 0 8px rgba(0,0,255,0.5)", "0 0 16px rgba(0,0,255,0.8)", "0 0 8px rgba(0,0,255,0.5)"]
+      buttonGradient: "from-blue-500 to-blue-600",
+      buttonGlow: "rgba(59, 130, 246, 0.5)",
+      titleAnimation: ["0 0 8px rgba(59, 130, 246, 0.5)", "0 0 16px rgba(59, 130, 246, 0.8)", "0 0 8px rgba(59, 130, 246, 0.5)"]
     }
   };
 
-  // Get current theme styles
-  const currentTheme = themeStyles[gameTheme] || themeStyles.dragonball;
-
-  // Debug log for multiplayer detection
-  useEffect(() => {
-    console.log("GameOverScreen - isOnline:", isOnline);
-    console.log("GameOverScreen - playerCount:", playerCount);
-    console.log("GameOverScreen - playerScores:", playerScores);
-    console.log("GameOverScreen - playerScores length:", playerScores?.length || 0);
-  }, [isOnline, playerCount, playerScores]);
+  // Get current theme styles with proper fallback
+  const currentTheme = themeStyles[gameTheme] || themeStyles.animals;
 
   // Determine if this is a multiplayer game
   const isMultiplayerGame = () => {
@@ -93,12 +85,13 @@ const GameOverScreen = ({
       return [];
     }
     
-    const maxScore = Math.max(...playerScores.map(p => p.score));
+    const maxScore = Math.max(...playerScores.map(p => p.score || 0));
     return playerScores
       .map((player, index) => ({ 
         ...player, 
         index, 
-        name: getPlayerName(index) 
+        name: getPlayerName(index),
+        score: player.score || 0
       }))
       .filter(player => player.score === maxScore);
   };
@@ -107,10 +100,7 @@ const GameOverScreen = ({
 
   // Format time from seconds to readable format
   const formatTime = (totalSeconds) => {
-    console.log("Formatting time:", totalSeconds);
-    
     if (typeof totalSeconds !== 'number' || isNaN(totalSeconds)) {
-      console.warn("Invalid time value, defaulting to 0");
       totalSeconds = 0;
     }
     
@@ -120,11 +110,21 @@ const GameOverScreen = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Get translated text with fallbacks
+  const getLocalizedText = (key, section = null) => {
+    try {
+      return getText(gameTheme, language, key, section) || 
+            (language === "en" ? key : key); // Simple fallback to the key itself
+    } catch (e) {
+      return language === "en" ? key : key;
+    }
+  };
+
   // Updated: Handle play again for online games with delay and notification
   const handlePlayAgain = () => {
     if (isOnline) {
       // For online play, show a brief loading notification
-      setNotification(getText(gameTheme, language, "resettingGame") || "Resetting game...");
+      setNotification(getLocalizedText("resettingGame"));
       
       // Call the socket service to play again
       socketService.playAgain({
@@ -203,15 +203,28 @@ const GameOverScreen = ({
     const totalScore = moveScore + timeScore;
     
     // Return rating based on total score
-    if (totalScore >= 5) return getText(gameTheme, language, "memoryMaster");
-    if (totalScore === 4) return getText(gameTheme, language, "excellentMemory");
-    if (totalScore === 3) return getText(gameTheme, language, "goodJob");
-    if (totalScore === 2) return getText(gameTheme, language, "gettingThere");
-    return getText(gameTheme, language, "keepPracticing");
+    if (totalScore >= 5) return getLocalizedText("memoryMaster");
+    if (totalScore === 4) return getLocalizedText("excellentMemory");
+    if (totalScore === 3) return getLocalizedText("goodJob");
+    if (totalScore === 2) return getLocalizedText("gettingThere");
+    return getLocalizedText("keepPracticing");
+  };
+
+  // Determine difficulty label color
+  const getDifficultyColor = () => {
+    switch(difficulty) {
+      case "hard":
+        return "bg-red-600";
+      case "medium":
+        return "bg-blue-600";
+      case "easy":
+      default:
+        return "bg-green-600";
+    }
   };
 
   return (
-    <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden`}>
+    <div className={`text-center max-w-md mx-auto p-4 ${currentTheme.container} rounded-xl backdrop-blur-lg shadow-2xl border relative overflow-hidden ${language === 'he' ? 'rtl' : 'ltr'}`}>
       <div className="absolute -inset-full top-0 left-0 h-64 w-96 bg-white/10 rotate-45 transform translate-x-2/3 translate-y-1/3 z-0 opacity-50"></div>
       <div className="absolute -inset-full top-0 left-0 h-32 w-64 bg-white/5 rotate-12 transform -translate-x-1/3 -translate-y-2/3 z-0"></div>
       
@@ -247,19 +260,23 @@ const GameOverScreen = ({
             }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            {getText(gameTheme, language, "gameOver")}
+            {getLocalizedText("gameOver")}
           </motion.h1>
           
           <motion.div
             className={`${currentTheme.subtitle} mb-1`}
             variants={itemVariants}
           >
-            {getText(gameTheme, language, "difficulty")}<span className={`${difficulty === "hard" ? "bg-red-600" : difficulty === "medium" ? "bg-orange-600" : "bg-green-600"} py-0.5 px-1 rounded-lg mx-0.5` }> {getText(gameTheme, language, difficulty, "common")} </span> {isOnline ? `• ${getText(gameTheme, language, "online")}` : ""}
+            {getLocalizedText("difficulty")}
+            <span className={`${getDifficultyColor()} py-0.5 px-1 rounded-lg mx-0.5`}> 
+              {getLocalizedText(difficulty, "common")} 
+            </span> 
+            {isOnline ? `• ${getLocalizedText("online")}` : ""}
           </motion.div>
           
           {isOnline && roomId && (
-            <motion.div dir="rtl" className="text-xs text-gray-400 mb-2" variants={itemVariants}>
-              {getText(gameTheme, language, "room")}: {roomId}
+            <motion.div className="text-xs text-gray-400 mb-2" variants={itemVariants}>
+              {getLocalizedText("room")}: {roomId}
             </motion.div>
           )}
         </motion.div>
@@ -271,14 +288,14 @@ const GameOverScreen = ({
           {!isMultiplayerGame() ? (
             // Single player results
             <div>
-              <h2 className={`text-lg font-bold ${currentTheme.sectionTitle} mb-2`}>{getText(gameTheme, language, "yourResults")}</h2>
+              <h2 className={`text-lg font-bold ${currentTheme.sectionTitle} mb-2`}>{getLocalizedText("yourResults")}</h2>
               <div className="text-white mb-2">
                 <p className="mb-1">{getPlayerName(0)}</p>
                 <p className="text-gray-300 text-sm mb-1">
-                  {getText(gameTheme, language, "completed")} {moves} {getText(gameTheme, language, "moves")}
+                  {getLocalizedText("completed")} {moves} {getLocalizedText("moves")}
                 </p>
                 <p className="text-gray-300 text-sm">
-                  {getText(gameTheme, language, "time", "common")}: {formatTime(completionTime)}
+                  {getLocalizedText("time", "common")}: {formatTime(completionTime)}
                 </p>
               </div>
               
@@ -291,28 +308,28 @@ const GameOverScreen = ({
             // Multiplayer results
             <div>
               <h2 className={`text-lg font-bold ${currentTheme.sectionTitle} mb-2`}>
-                {winners.length > 1 ? getText(gameTheme, language, "itsATie") : getText(gameTheme, language, "winner")}
+                {winners.length > 1 ? getLocalizedText("itsATie") : getLocalizedText("winner")}
               </h2>
               
               {/* Winners */}
               <div className="flex justify-center gap-2 mb-4 flex-wrap">
                 {winners.map((winner) => (
                   <motion.div
-                    key={winner.id}
+                    key={winner.id || winner.index}
                     className={`px-3 py-2 bg-gradient-to-r ${currentTheme.winnerGradient} rounded-lg text-white`}
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 10 }}
                   >
                     <div className="font-bold">{winner.name}</div>
-                    <div className="text-sm">{winner.score} {getText(gameTheme, language, "pairsFound")}</div>
+                    <div className="text-sm">{winner.score} {getLocalizedText("pairsFound")}</div>
                   </motion.div>
                 ))}
               </div>
               
               {/* Game stats for multiplayer */}
               <div className="text-center text-gray-300 text-sm mb-3">
-                {getText(gameTheme, language, "time", "common")}: {formatTime(completionTime)}
+                {getLocalizedText("time", "common")}: {formatTime(completionTime)}
               </div>
               
               {/* All player scores */}
@@ -327,7 +344,7 @@ const GameOverScreen = ({
                     }`}
                   >
                     <div className="font-medium">{getPlayerName(index)}</div>
-                    <div>{player.score} {getText(gameTheme, language, "pairsFound")}</div>
+                    <div>{player.score || 0} {getLocalizedText("pairsFound")}</div>
                   </div>
                 ))}
               </div>
@@ -345,7 +362,7 @@ const GameOverScreen = ({
             whileHover={{ scale: 1.05, backgroundColor: "#374151" }}
             whileTap={{ scale: 0.95 }}
           >
-            {isOnline ? getText(gameTheme, language, "backToLobby") : getText(gameTheme, language, "home")}
+            {isOnline ? getLocalizedText("backToLobby") : getLocalizedText("home")}
           </motion.button>
           <motion.button
             onClick={handlePlayAgain}
@@ -353,7 +370,7 @@ const GameOverScreen = ({
             whileHover={{ scale: 1.05, boxShadow: `0 0 15px ${currentTheme.buttonGlow}` }}
             whileTap={{ scale: 0.95 }}
           >
-            {getText(gameTheme, language, "playAgain")}
+            {getLocalizedText("playAgain")}
           </motion.button>
         </motion.div>
       </motion.div>
