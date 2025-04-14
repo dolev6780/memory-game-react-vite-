@@ -1,11 +1,6 @@
-// src/themeConfig.js
-// Central configuration file for all theme and language settings
-
-// Import theme assets - update these paths according to your project structure
 import animalsBackgroundImage from "./assets/animalsBackgroundImage.png";
 import flagsBackgroundImage from "./assets/flagsBackgroundImage.png";
 
-// Import animal images
 import rabbit from "./assets/animals/rabbit.jpg";
 import peacock from "./assets/animals/peacock.jpg";
 import parrot from "./assets/animals/parrot.jpg";
@@ -20,7 +15,7 @@ import dolphine from "./assets/animals/dolphine.jpg";
 import dog from "./assets/animals/dog.jpg";
 import deer from "./assets/animals/deer.jpg";
 import crocodile from "./assets/animals/crocodile.jpg";
-import chameleon from "./assets/animals/chameleon.jpg";
+import chameleon from "./assets/animals/Chameleon.jpg";
 import cat from "./assets/animals/cat.jpg";
 import wolf from "./assets/animals/wolf.jpg";
 import tiger2 from "./assets/animals/tiger2.jpg";
@@ -30,7 +25,6 @@ import squirrel from "./assets/animals/squirrel.jpg";
 import snake from "./assets/animals/snake.jpg";
 import rooster from "./assets/animals/rooster.jpg";
 
-// Import flag images
 import finland from "./assets/flags/finland.png";
 import denmark from "./assets/flags/denmark.png";
 import czechRepublic from "./assets/flags/czech-republic.png";
@@ -85,6 +79,9 @@ const animalCharacters = [
   { id: 18, name: { en: "Tiger", he: "נמר" }, image: tiger },
   { id: 19, name: { en: "Swan", he: "ברבור" }, image: swan },
   { id: 20, name: { en: "Squirrel", he: "סנאי" }, image: squirrel },
+  { id: 21, name: { en: "Tiger in snow", he: "נמר בשלג" }, image: tiger2 },
+  { id: 22, name: { en: "Snake", he: "נחש" }, image: snake },
+  { id: 23, name: { en: "Rooster", he: "תרנגול" }, image: rooster },
 ];
 
 // Define Flags characters with multilingual support
@@ -113,6 +110,11 @@ const flagCharacters = [
   { id: 22, name: { en: "Ireland", he: "אירלנד" }, image: ireland },
   { id: 23, name: { en: "India", he: "הודו" }, image: india },
   { id: 24, name: { en: "Iceland", he: "איסלנד" }, image: iceland },
+  { id: 25, name: { en: "Lybya", he: "לוב" }, image: libya },
+  { id: 26, name: { en: "Hungary", he: "הונגריה" }, image: hungary },
+  { id: 27, name: { en: "Honduras", he: "הונדורס" }, image: honduras },
+  { id: 28, name: { en: "Guinea", he: "גינאה" }, image: guinea },
+  { id: 29, name: { en: "Greece", he: "יוון" }, image: greece },
 ];
 
 // Define UI text translations for both themes
