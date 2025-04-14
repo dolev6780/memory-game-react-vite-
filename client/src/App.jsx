@@ -364,6 +364,7 @@ const GameContent = () => {
           {phaseController()}
         </AnimatePresence>
       </div>
+
     </div>
   );
 };
